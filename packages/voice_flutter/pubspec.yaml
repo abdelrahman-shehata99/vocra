@@ -1,0 +1,34 @@
+name: voice_flutter
+description: >
+  Flutter platform layer for the Voice AI SDK: mic capture, audio playback,
+  permissions, and the app-facing VoiceSession API. Depends on voice_core.
+version: 0.1.0
+publish_to: 'none'
+resolution: workspace
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  voice_core:
+    path: ../voice_core
+  just_audio: ^0.10.6
+  record: ^7.1.1
+  audio_session: ^0.2.4
+  permission_handler: ^12.0.3
+  flutter_secure_storage: ^10.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  flutter_lints: ^6.0.0
+
+flutter:
+  # No native plugin registration in v1 — all platform capability comes from
+  # the plugins above (record, just_audio, audio_session, permission_handler).
+  # ios/ and android/ here are reserved for the optional native AEC module
+  # (spec §9, T18) and are empty until that work starts.

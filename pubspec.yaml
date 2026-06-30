@@ -1,0 +1,31 @@
+name: voice_ai_sdk_workspace
+publish_to: 'none'
+
+environment:
+  sdk: ^3.12.0
+
+dev_dependencies:
+  melos: ^8.0.0
+
+workspace:
+  - packages/voice_core
+  - packages/voice_flutter
+  - packages/voice_flutter/example
+
+melos:
+  name: voice_ai_sdk
+
+  scripts:
+    analyze:
+      run: melos exec -- "dart analyze ."
+      description: Analyze all packages.
+
+    format:
+      run: melos exec -- "dart format --set-exit-if-changed ."
+      description: Check formatting in all packages.
+
+    test:
+      run: |
+        melos exec --dir-exists=test --no-flutter -- "dart test" && \
+        melos exec --dir-exists=test --flutter -- "flutter test"
+      description: Run unit tests (voice_core) and widget tests (Flutter packages).

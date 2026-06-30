@@ -1,0 +1,127 @@
+import 'dart:async';
+
+import 'package:audio_session/audio_session.dart';
+import 'package:voice_core/voice_core.dart';
+
+import 'audio_session_setup.dart';
+import 'flutter_audio_sink.dart';
+import 'flutter_mic_source.dart';
+import 'mic_permission.dart';
+
+/// The single app-facing class consuming apps use (spec §8.6). Constructs
+/// the concrete Flutter implementations and a [VoiceEngine], runs
+/// permission + audio-session setup, and re-exposes the engine's streams
+/// and methods.
+class VoiceSession {
+  VoiceSession({required VoiceConfig config})
+    : _mic = FlutterMicSource(),
+      _sink = FlutterAudioSink(),
+      _micPermission = const MicPermission() {
+    _engine = VoiceEngine(config, audioSink: _sink, mic: _mic);
+    _engineErrorsSub = _engine.errors.listen(_errorsController.add);
+  }
+
+  final FlutterMicSource _mic;
+  final FlutterAudioSink _sink;
+  final MicPermission _micPermission;
+  late final VoiceEngine _engine;
+  late final StreamSubscription<VoiceError> _engineErrorsSub;
+
+  final StreamController<VoiceError> _errorsController =
+      StreamController<VoiceError>.broadcast();
+
+  AudioSessionSetup? _audioSession;
+  StreamSubscription<AudioInterruptionEvent>? _interruptionSub;
+  StreamSubscription<void>? _becomingNoisySub;
+
+  bool _started = false;
+  bool _starting = false;
+  bool _stopping = false;
+
+  Stream<TurnState> get turnState => _engine.turnState;
+  Stream<TranscriptEvent> get transcripts => _engine.transcripts;
+  Stream<TurnMetrics> get metrics => _engine.metrics;
+
+  /// Engine errors plus session-level errors (e.g. permission denial) that
+  /// have no equivalent in [VoiceEngine] itself.
+  Stream<VoiceError> get errors => _errorsController.stream;
+
+  Future<void> requestPermissions() async {
+    await _micPermission.request();
+  }
+
+  /// Permissions + audio session setup + `engine.startConversation()`. If
+  /// the mic permission isn't granted, this emits a [ConfigError] on
+  /// [errors] and returns without starting — it does not throw, so a UI
+  /// driven entirely by these streams doesn't need a try/catch here.
+  ///
+  /// [_starting] is set synchronously (before any `await`) so two rapid
+  /// calls — e.g. a double-tapped mic button — can't both slip past the
+  /// `_started` guard and start the conversation twice concurrently.
+  Future<void> start() async {
+    if (_started || _starting) return;
+    _starting = true;
+    try {
+      final status = await _micPermission.request();
+      if (status != MicPermissionStatus.granted) {
+        _errorsController.add(
+          const ConfigError('Microphone permission was not granted.'),
+        );
+        return;
+      }
+
+      final audioSession = await AudioSessionSetup.configure();
+      _audioSession = audioSession;
+      _wireAudioSessionReactions(audioSession);
+
+      await _engine.startConversation();
+      _started = true;
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<void> stop() async {
+    if (!_started || _stopping) return;
+    _stopping = true;
+    try {
+      await _interruptionSub?.cancel();
+      _interruptionSub = null;
+      await _becomingNoisySub?.cancel();
+      _becomingNoisySub = null;
+
+      await _engine.stopConversation();
+      await _audioSession?.setActive(false);
+      _started = false;
+    } finally {
+      _stopping = false;
+    }
+  }
+
+  Future<void> sendText(String text) => _engine.sendText(text);
+
+  Future<void> dispose() async {
+    await stop();
+    await _engineErrorsSub.cancel();
+    await _errorsController.close();
+    await _engine.dispose();
+    await _mic.dispose();
+    await _sink.dispose();
+  }
+
+  void _wireAudioSessionReactions(AudioSessionSetup audioSession) {
+    // A phone call (or other app) taking audio focus: cut the current turn
+    // and drop back to listening rather than continuing to talk over it.
+    _interruptionSub = audioSession.interruptions.listen((event) {
+      if (event.begin) {
+        unawaited(_engine.interrupt());
+      }
+    });
+
+    // Headphones/AirPods unplugged: don't let playback suddenly blast out
+    // of the speaker.
+    _becomingNoisySub = audioSession.becomingNoisy.listen((_) {
+      unawaited(_engine.interrupt());
+    });
+  }
+}

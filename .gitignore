@@ -1,0 +1,58 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related (monorepo: match at any depth, not just root)
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+**/build/
+**/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# melos
+.melos_tool/
+
+# packages/voice_flutter/{ios,android} are reserved for the optional native
+# AEC module (spec §9, T18) and must stay empty until that work starts.
+# Running Flutter tooling against the package can spuriously scaffold these
+# as if it were a full app (Runner target, GeneratedPluginRegistrant) — keep
+# that out of version control even if it regenerates locally.
+packages/voice_flutter/ios/Flutter/
+packages/voice_flutter/ios/Runner/
+packages/voice_flutter/android/app/
+packages/voice_flutter/android/local.properties
