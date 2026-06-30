@@ -59,6 +59,11 @@ class VoiceEngine {
   StreamSubscription<int>? _clipStartedSub;
 
   bool _micForwardingEnabled = true;
+  // True between startConversation() and stopConversation(): the mic + STT
+  // are live. Typed turns (sendText) can also run while this is false, in
+  // which case there's no mic to pause/resume and the engine rests at idle
+  // rather than listening.
+  bool _conversationActive = false;
   Cancellation? _turnCancel;
   Stopwatch? _turnStopwatch;
   TurnMetrics _currentMetrics = const TurnMetrics();
@@ -83,6 +88,7 @@ class VoiceEngine {
   };
 
   Future<void> startConversation() async {
+    _conversationActive = true;
     await _mic.start();
     await _stt.start();
 
@@ -102,6 +108,7 @@ class VoiceEngine {
   }
 
   Future<void> stopConversation() async {
+    _conversationActive = false;
     _turnCancel?.cancel();
     await _audioQueue.interrupt();
     await _cancelTurnSubs();
@@ -135,11 +142,11 @@ class VoiceEngine {
     await _audioQueue.interrupt();
     await _cancelTurnSubs();
 
-    if (_isHalfDuplex) {
+    if (_isHalfDuplex && _conversationActive) {
       _micForwardingEnabled = true;
       await _mic.resume();
     }
-    _returnToListening();
+    _returnToRest();
   }
 
   Future<void> dispose() async {
@@ -176,12 +183,20 @@ class VoiceEngine {
   }
 
   Future<void> _beginTurn(String userText) async {
-    if (_turnMachine.state != TurnState.listening) return;
+    // A turn may begin from `listening` (the user spoke, mic conversation
+    // active) or from `idle` (typed input via sendText with no mic). It must
+    // never overlap an in-flight turn (`thinking`/`speaking`).
+    if (_turnMachine.state == TurnState.thinking ||
+        _turnMachine.state == TurnState.speaking) {
+      return;
+    }
 
     _addToHistory(ChatMessage(role: MessageRole.user, content: userText));
 
-    if (_isHalfDuplex) {
-      _micForwardingEnabled = false; // R7: half-duplex begins now
+    // Half-duplex pauses the mic during a turn — but only when there's a
+    // live mic conversation to pause (R7). Typed-only turns skip this.
+    if (_isHalfDuplex && _conversationActive) {
+      _micForwardingEnabled = false;
       await _mic.pause();
     }
     _turnMachine.transitionTo(TurnState.thinking);
@@ -230,7 +245,9 @@ class VoiceEngine {
         }
         assistantText.write(token);
 
-        for (final sentence in splitter.add(token)) {
+        // Eager-split only while still waiting on the very first sentence,
+        // to get the first TTS clip out as early as possible (lower TTFV).
+        for (final sentence in splitter.add(token, eager: sentenceIndex == 0)) {
           _submitSentence(sentence, sentenceIndex++, epoch, cancel, stopwatch);
         }
       }
@@ -247,11 +264,11 @@ class VoiceEngine {
       _errorsController.add(e);
       await _audioQueue.interrupt();
       await _cancelTurnSubs();
-      if (_isHalfDuplex) {
+      if (_isHalfDuplex && _conversationActive) {
         _micForwardingEnabled = true;
         await _mic.resume();
       }
-      _returnToListening();
+      _returnToRest();
     }
   }
 
@@ -309,26 +326,28 @@ class VoiceEngine {
     }
 
     unawaited(_cancelTurnSubs());
-    if (_isHalfDuplex) {
+    if (_isHalfDuplex && _conversationActive) {
       _micForwardingEnabled = true;
       unawaited(_mic.resume());
     }
-    _returnToListening();
+    _returnToRest();
   }
 
-  /// Moves back to [TurnState.listening] from wherever the turn currently
-  /// is, respecting [TurnMachine]'s legal-transition table. A turn that
-  /// never produced any audio (e.g. an empty LLM reply) is still sitting in
-  /// [TurnState.thinking] at this point, which can't jump straight to
-  /// listening — so it passes through speaking first, matching what would
-  /// have happened had there been a zero-length clip.
-  void _returnToListening() {
-    if (_turnMachine.state == TurnState.thinking) {
+  /// Settles back to the resting state after a turn: [TurnState.listening]
+  /// when a mic conversation is active, otherwise [TurnState.idle] (a
+  /// typed-only turn). Respects [TurnMachine]'s legal-transition table: a
+  /// turn that produced no audio is still in [TurnState.thinking] here, and
+  /// thinking can't jump straight to listening — so it passes through
+  /// speaking first (matching what a zero-length clip would have done),
+  /// whereas thinking→idle is legal directly.
+  void _returnToRest() {
+    final target = _conversationActive ? TurnState.listening : TurnState.idle;
+    if (_turnMachine.state == target) return;
+    if (_turnMachine.state == TurnState.thinking &&
+        target == TurnState.listening) {
       _turnMachine.transitionTo(TurnState.speaking);
     }
-    if (_turnMachine.state != TurnState.listening) {
-      _turnMachine.transitionTo(TurnState.listening);
-    }
+    _turnMachine.transitionTo(target);
   }
 
   Future<void> _cancelTurnSubs() async {

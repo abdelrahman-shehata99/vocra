@@ -62,12 +62,10 @@ void main() {
       }
     });
 
-    test('rejects an illegal transition (idle -> thinking)', () {
+    test('allows idle -> thinking (typed-input entry path)', () {
       final machine = TurnMachine();
-      expect(
-        () => machine.transitionTo(TurnState.thinking),
-        throwsA(isA<AssertionError>()),
-      );
+      machine.transitionTo(TurnState.thinking);
+      expect(machine.state, TurnState.thinking);
     });
 
     test('rejects an illegal transition (idle -> speaking)', () {

@@ -11,8 +11,10 @@ class TurnMachine {
   final StreamController<TurnState> _controller =
       StreamController<TurnState>.broadcast();
 
+  // idle→thinking is the typed-input entry path (sendText with no active
+  // mic conversation): it skips STT/listening and goes straight to thinking.
   static const Map<TurnState, Set<TurnState>> _legalTransitions = {
-    TurnState.idle: {TurnState.listening},
+    TurnState.idle: {TurnState.listening, TurnState.thinking},
     TurnState.listening: {TurnState.thinking, TurnState.idle},
     TurnState.thinking: {TurnState.speaking, TurnState.idle},
     TurnState.speaking: {TurnState.listening, TurnState.idle},

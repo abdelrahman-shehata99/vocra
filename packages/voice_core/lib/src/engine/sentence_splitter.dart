@@ -1,12 +1,28 @@
 /// Turns a stream of partial LLM tokens into complete sentences, emitted as
 /// early as possible so TTS can start before the LLM finishes (spec §6.1).
 class SentenceSplitter {
-  SentenceSplitter({this.minChars = 12});
+  SentenceSplitter({
+    this.minChars = 12,
+    this.eagerMinChars = 15,
+    this.eagerFallbackChars = 40,
+  });
 
   /// Minimum trimmed sentence length to emit on a weak terminator (`.`/`…`).
   /// Strong terminators (`!`/`?`/Arabic `؟`) always emit regardless of
   /// length, to avoid sitting on an exclamation/question forever.
   final int minChars;
+
+  /// Eager mode (see [add]'s `eager` flag): once the buffer exceeds this and
+  /// no sentence terminator has appeared, split on the earliest clause
+  /// boundary instead of waiting for a full sentence.
+  final int eagerMinChars;
+
+  /// Eager mode: if no clause boundary is found either, flush the whole
+  /// buffer as one chunk once it exceeds this length.
+  final int eagerFallbackChars;
+
+  // Clause boundaries used by eager mode, in priority of earliest position.
+  static const _clauseSeparators = [', ', '; ', ': ', '— '];
 
   final StringBuffer _buffer = StringBuffer();
 
@@ -37,9 +53,50 @@ class SentenceSplitter {
       .reduce((a, b) => a > b ? a : b);
 
   /// Feed a token; returns any newly completed sentences (0..n).
-  List<String> add(String token) {
+  ///
+  /// When [eager] is true (the engine sets this only while waiting for the
+  /// *first* sentence of a turn), and no real sentence boundary has appeared
+  /// yet, the splitter will break early on a clause boundary so the first
+  /// TTS clip can start sooner. This is a faithful port of the HTML
+  /// reference's first-sentence latency optimization and materially lowers
+  /// time-to-first-voice on long opening sentences.
+  List<String> add(String token, {bool eager = false}) {
     _buffer.write(token);
-    return _scan();
+    final sentences = _scan();
+    if (sentences.isEmpty && eager) {
+      final eagerSentence = _tryEagerSplit();
+      if (eagerSentence != null) sentences.add(eagerSentence);
+    }
+    return sentences;
+  }
+
+  /// Eager fallback: emit the earliest clause (or the whole buffer once it's
+  /// long enough) so the first clip isn't gated on a full sentence.
+  String? _tryEagerSplit() {
+    final text = _buffer.toString();
+    if (text.length <= eagerMinChars) return null;
+
+    int? best;
+    for (final sep in _clauseSeparators) {
+      // Require the boundary to be at least a few words in (index >= 12) so
+      // we don't emit a one- or two-word fragment.
+      final i = text.indexOf(sep, 12);
+      if (i != -1 && (best == null || i < best)) best = i;
+    }
+    if (best != null) {
+      final sentence = text.substring(0, best + 1).trim();
+      final remainder = text.substring(best + 2);
+      _buffer
+        ..clear()
+        ..write(remainder);
+      return sentence.isEmpty ? null : sentence;
+    }
+
+    if (text.trim().length > eagerFallbackChars) {
+      _buffer.clear();
+      return text.trim();
+    }
+    return null;
   }
 
   /// Call when the LLM stream ends; returns any remaining buffered text.

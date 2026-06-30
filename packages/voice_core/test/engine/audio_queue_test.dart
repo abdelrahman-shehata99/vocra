@@ -169,29 +169,58 @@ void main() {
       },
     );
 
-    test('a clip future that errors does not crash the queue', () async {
-      queue.beginTurn();
-      final epoch = queue.epoch;
+    test(
+      'a failed clip is skipped so the queue plays the surviving clips',
+      () async {
+        queue.beginTurn();
+        final epoch = queue.epoch;
 
-      final failing = Completer<Uint8List>();
-      final c1 = Completer<Uint8List>();
-      queue.submit(0, failing.future, epoch);
-      queue.submit(1, c1.future, epoch);
+        final failing = Completer<Uint8List>();
+        final c1 = Completer<Uint8List>();
+        queue.submit(0, failing.future, epoch);
+        queue.submit(1, c1.future, epoch);
 
-      failing.completeError(Exception('synthesis failed'));
-      await pump();
-      expect(sink.enqueuedIndexes, isEmpty); // still waiting on index 0
+        failing.completeError(Exception('synthesis failed'));
+        await pump();
+        // index 0 failed — but index 1 must still play (queue advances past
+        // the gap rather than stalling forever).
+        c1.complete(Uint8List.fromList([1]));
+        await pump();
+        expect(sink.enqueuedIndexes, [1]);
+      },
+    );
 
-      // index 1 is now unreachable since 0 never arrives — this just
-      // documents that the queue stalls rather than crashing; an
-      // interrupt() (as the engine would do on error) unblocks it.
-      c1.complete(Uint8List.fromList([1]));
-      await pump();
-      expect(sink.enqueuedIndexes, isEmpty);
+    test(
+      'a failed clip in the middle still lets the turn drain and resume',
+      () async {
+        queue.beginTurn();
+        final epoch = queue.epoch;
+        var drained = false;
+        queue.drained.listen((_) => drained = true);
 
-      await queue.interrupt();
-      expect(sink.stopNowCalls, 1);
-    });
+        final c0 = Completer<Uint8List>();
+        final failing = Completer<Uint8List>();
+        final c2 = Completer<Uint8List>();
+        queue.submit(0, c0.future, epoch);
+        queue.submit(1, failing.future, epoch);
+        queue.submit(2, c2.future, epoch);
+        queue.completeTurn();
+
+        c0.complete(Uint8List.fromList([0]));
+        failing.completeError(Exception('mid-turn TTS failure'));
+        c2.complete(Uint8List.fromList([2]));
+        await pump();
+
+        // 0 plays first.
+        expect(sink.enqueuedIndexes, [0]);
+        sink.finishClip(); // 0 done -> skip 1 -> play 2
+        await pump();
+        expect(sink.enqueuedIndexes, [0, 2]);
+        sink.finishClip(); // 2 done -> turn drains
+        await pump();
+        expect(drained, isTrue);
+      },
+    );
 
     test(
       'clipStarted fires the index when a clip is handed to the sink',

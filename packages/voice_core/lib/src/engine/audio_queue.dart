@@ -34,6 +34,13 @@ class AudioQueue {
 
   final Map<int, Uint8List> _ready = {};
 
+  /// Indices whose synthesis resolved with no playable audio (failed TTS, or
+  /// an empty clip). The player loop must advance *past* these rather than
+  /// wait on them forever — otherwise one failed sentence stalls the whole
+  /// turn and the mic never resumes. Mirrors the HTML reference's
+  /// `AudioQueue.skip()`.
+  final Set<int> _skipped = {};
+
   final StreamController<void> _drainedController =
       StreamController<void>.broadcast();
   final StreamController<int> _clipStartedController =
@@ -57,6 +64,7 @@ class AudioQueue {
     _turnComplete = false;
     _playingCurrent = false;
     _ready.clear();
+    _skipped.clear();
   }
 
   /// Call once the last sentence of the current turn has been submitted.
@@ -77,12 +85,16 @@ class AudioQueue {
         _ready[index] = bytes;
         _tryPlayNext();
       },
-      // A failed synthesis (network error, or cancelled mid-flight) just
-      // means this slot never arrives — it must not crash as an unhandled
-      // exception. If the turn is later interrupted the gap is moot; if
-      // not, the player loop simply waits forever on this index, same as
-      // it would for a still-pending clip.
-      onError: (Object _, StackTrace __) {},
+      // A failed synthesis (network error, 429, or cancelled mid-flight)
+      // must not crash as an unhandled exception, and must not stall the
+      // queue: mark the slot skipped so the player loop advances past it to
+      // the remaining clips rather than waiting on an index that will never
+      // arrive. A stale-epoch failure is simply dropped.
+      onError: (Object _, StackTrace __) {
+        if (epoch != _epoch) return;
+        _skipped.add(index);
+        _tryPlayNext();
+      },
     );
   }
 
@@ -91,6 +103,7 @@ class AudioQueue {
   Future<void> interrupt() async {
     _epoch++;
     _ready.clear();
+    _skipped.clear();
     _playingCurrent = false;
     await _sink.stopNow();
   }
@@ -103,6 +116,12 @@ class AudioQueue {
 
   void _tryPlayNext() {
     if (_playingCurrent) return;
+
+    // Advance past any slots that resolved with no audio (failed/skipped),
+    // so a gap in the middle of a turn doesn't block the clips after it.
+    while (_skipped.remove(_nextToPlay)) {
+      _nextToPlay++;
+    }
 
     final bytes = _ready[_nextToPlay];
     if (bytes == null) {

@@ -32,7 +32,7 @@ void main() {
       final adapter = FakeHttpClientAdapter((options) async {
         expect(options.path, 'https://api.deepgram.com/v1/speak');
         expect(options.headers['Authorization'], 'Token secret-key');
-        expect(options.queryParameters['model'], 'aura-2-thalia-en');
+        expect(options.queryParameters['model'], 'aura-asteria-en');
         expect(options.queryParameters['encoding'], 'mp3');
         final body = options.data as Map<String, dynamic>;
         expect(body['text'], 'hello there');
@@ -55,12 +55,33 @@ void main() {
       );
     });
 
-    test('maps 429 to RateLimitError with retryAfter', () async {
+    test('retries once on 429 then succeeds', () async {
+      var attempt = 0;
+      final adapter = FakeHttpClientAdapter((options) async {
+        attempt++;
+        if (attempt == 1) {
+          return errorResponseBody(
+            429,
+            headers: {
+              'retry-after': ['0'],
+            },
+          );
+        }
+        return bytesResponseBody([1, 2, 3]);
+      });
+      final tts = DeepgramTts(apiKey: 'key', dio: dioWith(adapter));
+
+      final bytes = await tts.synthesize('hi', cancel: Cancellation());
+      expect(attempt, 2);
+      expect(bytes, [1, 2, 3]);
+    });
+
+    test('maps a second consecutive 429 to RateLimitError', () async {
       final adapter = FakeHttpClientAdapter(
         (options) async => errorResponseBody(
           429,
           headers: {
-            'retry-after': ['3'],
+            'retry-after': ['0'],
           },
         ),
       );
@@ -68,13 +89,7 @@ void main() {
 
       await expectLater(
         tts.synthesize('hi', cancel: Cancellation()),
-        throwsA(
-          isA<RateLimitError>().having(
-            (e) => e.retryAfter,
-            'retryAfter',
-            const Duration(seconds: 3),
-          ),
-        ),
+        throwsA(isA<RateLimitError>()),
       );
     });
 

@@ -19,6 +19,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   TurnState _turnState = TurnState.idle;
   final List<TranscriptEvent> _transcript = [];
+  final TextEditingController _textController = TextEditingController();
   TurnMetrics? _lastMetrics;
   String? _lastError;
   bool _starting = false;
@@ -82,6 +83,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() => _starting = false);
   }
 
+  Future<void> _sendTyped() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+    _textController.clear();
+    // Works whether or not the mic conversation is active: sendText runs a
+    // turn directly (idle -> thinking -> speaking -> idle when mic is off).
+    await _session.sendText(text);
+  }
+
   Future<void> _clearConversation() async {
     final oldSession = _session;
     await _turnStateSub?.cancel();
@@ -104,6 +114,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   void dispose() {
+    _textController.dispose();
     _turnStateSub?.cancel();
     _transcriptsSub?.cancel();
     _metricsSub?.cancel();
@@ -209,6 +220,28 @@ class _ConversationScreenState extends State<ConversationScreen> {
         child: _starting
             ? const CircularProgressIndicator()
             : Icon(_isActive ? Icons.stop : Icons.mic),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 88, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendTyped(),
+                  decoration: const InputDecoration(
+                    hintText: 'Type a message (no mic needed)…',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.send), onPressed: _sendTyped),
+            ],
+          ),
+        ),
       ),
     );
   }

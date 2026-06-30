@@ -110,4 +110,46 @@ void main() {
       expect(out, ['First sentence here.', 'Second sentence here.']);
     });
   });
+
+  group('SentenceSplitter eager mode', () {
+    test('splits on the earliest clause boundary when eager', () {
+      final splitter = SentenceSplitter();
+      // No terminator yet, but a comma past index 12 and buffer > 15 chars.
+      final out = splitter.add(
+        'A vector database stores data, and it is fast',
+        eager: true,
+      );
+      expect(out, ['A vector database stores data,']);
+    });
+
+    test('does not eager-split when not flagged eager', () {
+      final splitter = SentenceSplitter();
+      final out = splitter.add('A vector database stores data, and it is fast');
+      expect(out, isEmpty);
+    });
+
+    test('eager falls back to whole buffer past the fallback length', () {
+      final splitter = SentenceSplitter();
+      // No clause boundary and no terminator, but long enough to flush.
+      final out = splitter.add(
+        'this is a long clauseless run of words with no breaks at all here',
+        eager: true,
+      );
+      expect(out, [
+        'this is a long clauseless run of words with no breaks at all here',
+      ]);
+    });
+
+    test('eager does not fire on a short buffer', () {
+      final splitter = SentenceSplitter();
+      final out = splitter.add('short, bit', eager: true);
+      expect(out, isEmpty);
+    });
+
+    test('a real terminator still takes priority over eager clause split', () {
+      final splitter = SentenceSplitter();
+      final out = splitter.add('Yes, absolutely correct. ', eager: true);
+      expect(out, ['Yes, absolutely correct.']);
+    });
+  });
 }

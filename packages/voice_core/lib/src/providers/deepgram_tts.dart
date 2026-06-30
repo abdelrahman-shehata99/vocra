@@ -11,14 +11,19 @@ import 'tts_provider.dart';
 ///
 /// Endpoint and auth header verified against Deepgram's current docs as of
 /// writing: `POST {baseUrl}/speak`, `Authorization: Token <key>` — note
-/// this is `Token`, not `Bearer` (R-of-the-Do-Not list, spec §13). The
-/// default voice model uses the current Aura-2 naming convention
-/// (`aura-2-<voice>-en`), which supersedes the original Aura-1
-/// `aura-asteria-en` style name used in earlier examples.
+/// this is `Token`, not `Bearer` (R-of-the-Do-Not list, spec §13).
+///
+/// The default voice is Aura-1 `aura-asteria-en` (spec §7.3), NOT Aura-2.
+/// This is deliberate and load-bearing: Aura-1 is Deepgram's low-latency
+/// real-time model and synthesizes a typical sentence in ~0.6s, whereas the
+/// higher-quality Aura-2 (`aura-2-*`) measured ~4s for the same sentence in
+/// live testing — which would push time-to-first-voice past 5s and defeat
+/// the whole streaming/sentence-splitting design. Apps that prefer Aura-2's
+/// quality over latency can opt in by passing `model: 'aura-2-thalia-en'`.
 class DeepgramTts implements TtsProvider {
   DeepgramTts({
     required String apiKey,
-    this.model = 'aura-2-thalia-en',
+    this.model = 'aura-asteria-en',
     String baseUrl = 'https://api.deepgram.com/v1',
     Dio? dio,
   }) : _apiKey = apiKey,
@@ -42,7 +47,14 @@ class DeepgramTts implements TtsProvider {
     cancel.whenCancelled.then((_) {
       if (!cancelToken.isCancelled) cancelToken.cancel('cancelled');
     });
+    return _synthesize(text, cancelToken: cancelToken, retriedOn429: false);
+  }
 
+  Future<Uint8List> _synthesize(
+    String text, {
+    required CancelToken cancelToken,
+    required bool retriedOn429,
+  }) async {
     try {
       final response = await _dio.post<List<int>>(
         '$_baseUrl/speak',
@@ -60,6 +72,17 @@ class DeepgramTts implements TtsProvider {
       return Uint8List.fromList(response.data ?? const []);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) rethrow;
+
+      // Retry once on 429 (rate limits are common on free tiers), mirroring
+      // GroqLlm and the HTML reference's synthesizeWithRetry.
+      if (e.response?.statusCode == 429 && !retriedOn429) {
+        await Future<void>.delayed(
+          _parseRetryAfter(e.response) ?? const Duration(seconds: 1),
+        );
+        if (cancelToken.isCancelled) rethrow;
+        return _synthesize(text, cancelToken: cancelToken, retriedOn429: true);
+      }
+
       throw _mapError(e);
     }
   }

@@ -168,6 +168,39 @@ void main() {
     });
 
     test(
+      'typed input works with no mic conversation and rests at idle',
+      () async {
+        final h = _Harness();
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+
+        // No startConversation() — pure typed usage.
+        unawaited(h.engine.sendText('hello there'));
+        await pump(5);
+
+        h.llm.pushToken('Hi! How can I help? ');
+        await h.llm.endStream();
+        await pump(30);
+
+        // Ran a full turn straight from idle and settled back at idle.
+        expect(states, [
+          TurnState.thinking,
+          TurnState.speaking,
+          TurnState.idle,
+        ]);
+        // No mic was ever started/paused/resumed.
+        expect(h.mic.started, isFalse);
+        expect(h.mic.pauseCalls, 0);
+        expect(h.mic.resumeCalls, 0);
+        // The assistant reply made it into history.
+        expect(
+          h.llm.historySnapshots.last.where((m) => m.role == MessageRole.user),
+          isNotEmpty,
+        );
+      },
+    );
+
+    test(
       'interrupt() cancels the in-flight turn and returns to listening',
       () async {
         final h = _Harness();
@@ -262,6 +295,44 @@ void main() {
       expect(h.mic.stopCalls, 1);
       expect(h.stt.stopped, isTrue);
     });
+
+    test(
+      'a failed TTS clip does not hang the turn: it still drains and resumes',
+      () async {
+        final h = _Harness();
+        // Second sentence's synthesis fails (e.g. a 429); the first and
+        // third succeed. The turn must still complete and return to
+        // listening rather than stalling in speaking forever.
+        h.tts.handler = (text) async {
+          if (text.contains('TWO')) {
+            throw const RateLimitError();
+          }
+          return Uint8List.fromList(text.codeUnits);
+        };
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+        final errors = <VoiceError>[];
+        h.engine.errors.listen(errors.add);
+
+        await h.engine.startConversation();
+        h.stt.emitFinal('go');
+        await pump(5);
+
+        h.llm.pushToken('Sentence ONE here. ');
+        h.llm.pushToken('Sentence TWO here. ');
+        h.llm.pushToken('Sentence THREE here. ');
+        await h.llm.endStream();
+        await pump(40);
+
+        // Clips 1 and 3 played; clip 2 was skipped, not blocking.
+        expect(h.sink.enqueuedIndexes, [0, 2]);
+        // The rate-limit error from the failed clip was surfaced.
+        expect(errors.whereType<RateLimitError>(), isNotEmpty);
+        // Crucially: the turn finished and the mic came back.
+        expect(states.last, TurnState.listening);
+        expect(h.mic.resumeCalls, greaterThanOrEqualTo(1));
+      },
+    );
   });
 
   group('VoiceEngine full-duplex (spec §9)', () {
