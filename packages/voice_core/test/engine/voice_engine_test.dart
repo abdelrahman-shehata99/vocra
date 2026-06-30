@@ -13,18 +13,23 @@ Future<void> pump([int times = 1]) async {
 }
 
 class _Harness {
-  _Harness({int maxHistoryMessages = 20})
-    : mic = FakeMicSource(),
-      stt = FakeSttTransport(),
-      llm = FakeLlmProvider(),
-      tts = FakeTtsProvider(),
-      sink = FakeAudioSink() {
+  _Harness({
+    int maxHistoryMessages = 20,
+    DuplexMode duplex = DuplexMode.halfDuplex,
+    BargeInSensitivity sensitivity = BargeInSensitivity.balanced,
+  }) : mic = FakeMicSource(),
+       stt = FakeSttTransport(),
+       llm = FakeLlmProvider(),
+       tts = FakeTtsProvider(),
+       sink = FakeAudioSink() {
     config = VoiceConfig(
       llm: llm,
       tts: tts,
       stt: stt,
       systemPrompt: 'You are a helpful assistant.',
       maxHistoryMessages: maxHistoryMessages,
+      duplex: duplex,
+      sensitivity: sensitivity,
     );
     engine = VoiceEngine(config, audioSink: sink, mic: mic);
   }
@@ -257,5 +262,109 @@ void main() {
       expect(h.mic.stopCalls, 1);
       expect(h.stt.stopped, isTrue);
     });
+  });
+
+  group('VoiceEngine full-duplex (spec §9)', () {
+    test('never pauses the mic, unlike half-duplex', () async {
+      final h = _Harness(duplex: DuplexMode.fullDuplex);
+
+      await h.engine.startConversation();
+      h.stt.emitFinal('go');
+      await pump(5);
+
+      h.llm.pushToken('Hello there! ');
+      await pump(10);
+      await h.llm.endStream();
+      await pump(30);
+
+      expect(h.mic.pauseCalls, 0);
+      expect(h.mic.resumeCalls, 0);
+    });
+
+    test('mic audio keeps reaching STT while the AI is speaking', () async {
+      final h = _Harness(duplex: DuplexMode.fullDuplex);
+      final speakingReached = Completer<void>();
+      h.engine.turnState.listen((s) {
+        if (s == TurnState.speaking && !speakingReached.isCompleted) {
+          speakingReached.complete();
+        }
+      });
+
+      await h.engine.startConversation();
+      h.stt.emitFinal('go');
+      await pump(5);
+
+      h.llm.pushToken('Hello there! ');
+      await speakingReached.future.timeout(const Duration(seconds: 2));
+
+      final whileSpeaking = Uint8List.fromList([7]);
+      h.mic.emit(whileSpeaking);
+      await pump(3);
+
+      expect(h.stt.sentAudio, contains(whileSpeaking));
+    });
+
+    test(
+      'a long interim transcript while speaking triggers a barge-in interrupt',
+      () async {
+        final h = _Harness(
+          duplex: DuplexMode.fullDuplex,
+          sensitivity: BargeInSensitivity.balanced, // threshold: 12 chars
+        );
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+        final speakingReached = Completer<void>();
+        h.engine.turnState.listen((s) {
+          if (s == TurnState.speaking && !speakingReached.isCompleted) {
+            speakingReached.complete();
+          }
+        });
+
+        await h.engine.startConversation();
+        h.stt.emitFinal('go');
+        await pump(5);
+
+        h.llm.pushToken('Hello there, how can I help you today! ');
+        await speakingReached.future.timeout(const Duration(seconds: 2));
+
+        h.stt.emitInterim('wait stop'); // 9 chars — below the threshold
+        await pump(5);
+        expect(states.last, TurnState.speaking);
+
+        h.stt.emitInterim('wait stop please'); // 16 chars — crosses it
+        await pump(5);
+
+        expect(states.last, TurnState.listening);
+        expect(h.llm.lastCancel?.isCancelled, isTrue);
+      },
+    );
+
+    test(
+      'a short interim transcript while speaking does not interrupt',
+      () async {
+        final h = _Harness(
+          duplex: DuplexMode.fullDuplex,
+          sensitivity: BargeInSensitivity.relaxed, // threshold: 20 chars
+        );
+        final speakingReached = Completer<void>();
+        h.engine.turnState.listen((s) {
+          if (s == TurnState.speaking && !speakingReached.isCompleted) {
+            speakingReached.complete();
+          }
+        });
+
+        await h.engine.startConversation();
+        h.stt.emitFinal('go');
+        await pump(5);
+
+        h.llm.pushToken('Hello there, how can I help you today! ');
+        await speakingReached.future.timeout(const Duration(seconds: 2));
+
+        h.stt.emitInterim('hmm ok'); // well under 20 chars
+        await pump(5);
+
+        expect(h.llm.lastCancel?.isCancelled, isFalse);
+      },
+    );
   });
 }

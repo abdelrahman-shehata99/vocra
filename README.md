@@ -74,6 +74,12 @@ and verified to build and boot on both Android and iOS; the example app
 includes a "Test keys" flow so you can verify your own Groq/Deepgram keys
 before a full voice round-trip on a physical device.
 
+The optional full-duplex mode (native echo cancellation, §9) is also
+implemented — its Dart-side barge-in logic is unit tested, and its native
+Swift/Kotlin module compiles cleanly on both platforms, but actual
+echo-cancellation quality is unverified without a physical device. Default
+to half-duplex; see `docs/ARCHITECTURE.md` before turning on full-duplex.
+
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design notes,
 including a couple of places where the implementation goes slightly beyond
 the literal spec text (with rationale) to make the system actually work end

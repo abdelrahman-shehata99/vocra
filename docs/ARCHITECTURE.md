@@ -98,3 +98,50 @@ before their first `await`, specifically so that two rapid calls (e.g. a
 double-tapped mic button, before the first call's permission/audio-session
 setup has resolved) can't both slip past a "are we already started" check
 and run concurrently.
+
+## Full-duplex / native AEC (spec §9, T18 — optional)
+
+`DuplexMode.fullDuplex` has two halves, verified to two different
+standards:
+
+- **Engine-side barge-in logic** (`VoiceEngine`): when full-duplex, the mic
+  is never paused, and a sufficiently long interim transcript arriving
+  while `TurnState.speaking` calls `interrupt()` (threshold set by
+  `BargeInSensitivity`). This is pure Dart and is unit tested the same way
+  as everything else in `voice_core` — see the *"VoiceEngine full-duplex"*
+  group in `voice_engine_test.dart`.
+- **Native echo cancellation** (`NativeAecMicSource` +
+  `ios/Classes/AecAudioEngine.swift` + `android/.../AecAudioRecorder.kt`):
+  written against Apple's `AVAudioEngine` voice-processing APIs and
+  Android's `AudioRecord` + `AcousticEchoCanceler`/`NoiseSuppressor`, and
+  **verified to compile** (the example app builds successfully for both
+  Android and iOS with this plugin registered — `flutter build apk
+  --debug` and `flutter build ios --debug --no-codesign` both succeed,
+  including after fixing an Android Kotlin-Gradle-Plugin deprecation
+  warning). What is *not* verified — and structurally can't be, without a
+  physical device — is actual echo-cancellation quality: whether the mic
+  genuinely fails to pick up the AI's own voice during playback. Without
+  native AEC actually working, full-duplex would have the AI interrupt
+  itself almost immediately.
+
+  `NativeAecMicSource.isAvailable()` lets `VoiceSession` (and apps) check
+  support before committing to full-duplex; `VoiceSession.start()` emits a
+  `ConfigError` and refuses to start rather than silently falling back if
+  full-duplex was requested but AEC isn't available — silently downgrading
+  to half-duplex would mean an app's `DuplexMode.fullDuplex` config
+  doesn't reflect what's actually running, which seemed worse than an
+  explicit, actionable error.
+
+  iOS uses a CocoaPods podspec, not Swift Package Manager — `flutter build
+  ios` prints a forward-compatibility warning about this (current Flutter
+  versions still fall back to CocoaPods automatically). Adding SPM support
+  for a one-package native module wasn't worth the risk of getting the
+  manifest subtly wrong without a way to verify it; CocoaPods works today
+  and isn't yet a hard error.
+
+**If you pick this up to validate on a device:** half-duplex (the default)
+needs no native AEC and is unaffected by any of this. To exercise
+full-duplex, set `VoiceConfig(duplex: DuplexMode.fullDuplex, ...)`, confirm
+`NativeAecMicSource.isAvailable()` returns `true` on your test device, and
+listen for the AI talking over itself — that's the signal AEC isn't
+actually cancelling the echo.

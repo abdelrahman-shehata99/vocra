@@ -69,6 +69,19 @@ class VoiceEngine {
   Stream<TurnMetrics> get metrics => _metricsController.stream;
   Stream<VoiceError> get errors => _errorsController.stream;
 
+  bool get _isHalfDuplex => _config.duplex == DuplexMode.halfDuplex;
+
+  /// Minimum interim-transcript length while [TurnState.speaking] that
+  /// counts as the user barging in, for [DuplexMode.fullDuplex] (spec §9).
+  /// Only meaningful with native echo cancellation enabled — without it,
+  /// the mic would pick up the AI's own voice and this would fire
+  /// immediately on every reply.
+  int get _bargeInThreshold => switch (_config.sensitivity) {
+    BargeInSensitivity.relaxed => 20,
+    BargeInSensitivity.balanced => 12,
+    BargeInSensitivity.eager => 6,
+  };
+
   Future<void> startConversation() async {
     await _mic.start();
     await _stt.start();
@@ -122,8 +135,10 @@ class VoiceEngine {
     await _audioQueue.interrupt();
     await _cancelTurnSubs();
 
-    _micForwardingEnabled = true;
-    await _mic.resume();
+    if (_isHalfDuplex) {
+      _micForwardingEnabled = true;
+      await _mic.resume();
+    }
     _returnToListening();
   }
 
@@ -141,6 +156,19 @@ class VoiceEngine {
 
   void _onSttTranscript(TranscriptEvent event) {
     _transcriptsController.add(event);
+
+    // Full-duplex barge-in (spec §9): the mic was never paused, so real
+    // speech arriving while the AI is talking means the user cut in.
+    // interrupt() alone is enough — it returns to listening, and the
+    // utterance the user already started continues normally from there
+    // once STT produces a final transcript for it.
+    if (!_isHalfDuplex && _turnMachine.state == TurnState.speaking) {
+      if (event.text.trim().length >= _bargeInThreshold) {
+        unawaited(interrupt());
+      }
+      return;
+    }
+
     if (!event.isFinal) return;
     if (event.text.trim().isEmpty) return;
     if (_turnMachine.state != TurnState.listening) return;
@@ -152,8 +180,10 @@ class VoiceEngine {
 
     _addToHistory(ChatMessage(role: MessageRole.user, content: userText));
 
-    _micForwardingEnabled = false; // R7: half-duplex begins now
-    await _mic.pause();
+    if (_isHalfDuplex) {
+      _micForwardingEnabled = false; // R7: half-duplex begins now
+      await _mic.pause();
+    }
     _turnMachine.transitionTo(TurnState.thinking);
 
     final stopwatch = Stopwatch()..start();
@@ -217,8 +247,10 @@ class VoiceEngine {
       _errorsController.add(e);
       await _audioQueue.interrupt();
       await _cancelTurnSubs();
-      _micForwardingEnabled = true;
-      await _mic.resume();
+      if (_isHalfDuplex) {
+        _micForwardingEnabled = true;
+        await _mic.resume();
+      }
       _returnToListening();
     }
   }
@@ -277,8 +309,10 @@ class VoiceEngine {
     }
 
     unawaited(_cancelTurnSubs());
-    _micForwardingEnabled = true;
-    unawaited(_mic.resume());
+    if (_isHalfDuplex) {
+      _micForwardingEnabled = true;
+      unawaited(_mic.resume());
+    }
     _returnToListening();
   }
 

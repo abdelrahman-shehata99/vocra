@@ -28,7 +28,15 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
-  # No native plugin registration in v1 — all platform capability comes from
-  # the plugins above (record, just_audio, audio_session, permission_handler).
-  # ios/ and android/ here are reserved for the optional native AEC module
-  # (spec §9, T18) and are empty until that work starts.
+  # v1's happy path needs none of this — mic capture comes from the `record`
+  # plugin via FlutterMicSource. This native plugin registration exists only
+  # for the *optional* full-duplex native AEC module (spec §9, T18):
+  # NativeAecMicSource talks to it over a MethodChannel/EventChannel pair,
+  # and nothing else in the package touches it.
+  plugin:
+    platforms:
+      android:
+        package: com.vocra.voice_flutter
+        pluginClass: VoiceFlutterPlugin
+      ios:
+        pluginClass: VoiceFlutterPlugin

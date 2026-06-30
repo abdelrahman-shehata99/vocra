@@ -7,6 +7,7 @@ import 'audio_session_setup.dart';
 import 'flutter_audio_sink.dart';
 import 'flutter_mic_source.dart';
 import 'mic_permission.dart';
+import 'native_aec_mic_source.dart';
 
 /// The single app-facing class consuming apps use (spec §8.6). Constructs
 /// the concrete Flutter implementations and a [VoiceEngine], runs
@@ -14,14 +15,18 @@ import 'mic_permission.dart';
 /// and methods.
 class VoiceSession {
   VoiceSession({required VoiceConfig config})
-    : _mic = FlutterMicSource(),
+    : _config = config,
+      _mic = config.duplex == DuplexMode.fullDuplex
+          ? NativeAecMicSource()
+          : FlutterMicSource(),
       _sink = FlutterAudioSink(),
       _micPermission = const MicPermission() {
     _engine = VoiceEngine(config, audioSink: _sink, mic: _mic);
     _engineErrorsSub = _engine.errors.listen(_errorsController.add);
   }
 
-  final FlutterMicSource _mic;
+  final VoiceConfig _config;
+  final MicSource _mic;
   final FlutterAudioSink _sink;
   final MicPermission _micPermission;
   late final VoiceEngine _engine;
@@ -62,6 +67,17 @@ class VoiceSession {
     if (_started || _starting) return;
     _starting = true;
     try {
+      if (_config.duplex == DuplexMode.fullDuplex &&
+          !await NativeAecMicSource.isAvailable()) {
+        _errorsController.add(
+          const ConfigError(
+            'Full-duplex requires native echo cancellation, which is not '
+            'available on this build/device. Use DuplexMode.halfDuplex instead.',
+          ),
+        );
+        return;
+      }
+
       final status = await _micPermission.request();
       if (status != MicPermissionStatus.granted) {
         _errorsController.add(
@@ -105,8 +121,20 @@ class VoiceSession {
     await _engineErrorsSub.cancel();
     await _errorsController.close();
     await _engine.dispose();
-    await _mic.dispose();
+    await _disposeMic();
     await _sink.dispose();
+  }
+
+  /// [MicSource] doesn't declare a `dispose()` (only [stop], which leaves
+  /// the underlying recorder/engine reusable for another `start()`) — both
+  /// concrete implementations add their own for full teardown.
+  Future<void> _disposeMic() async {
+    final mic = _mic;
+    if (mic is FlutterMicSource) {
+      await mic.dispose();
+    } else if (mic is NativeAecMicSource) {
+      await mic.dispose();
+    }
   }
 
   void _wireAudioSessionReactions(AudioSessionSetup audioSession) {

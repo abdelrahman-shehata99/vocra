@@ -6,8 +6,21 @@ setup, and `VoiceSession` — the single class apps use to get a spoken AI
 conversation with on-device orchestration, no backend required.
 
 Built on [`voice_core`](../voice_core) (the pure-Dart engine), Groq for the
-LLM, and Deepgram for STT + TTS. v1 ships **half-duplex**: the mic is
-suspended while the AI is speaking, so it can't hear itself.
+LLM, and Deepgram for STT + TTS. **Half-duplex is the default and
+recommended mode**: the mic is suspended while the AI is speaking, so it
+can't hear itself — no native code required, and it's what's been verified
+end-to-end on both platforms.
+
+An **optional full-duplex mode** (`DuplexMode.fullDuplex`) is also
+implemented: the mic stays open and barge-in is detected via STT, backed
+by a native echo-cancellation module (`AVAudioEngine` voice processing on
+iOS, `AudioRecord` + `AcousticEchoCanceler` on Android). That native code
+compiles cleanly on both platforms but its actual echo-cancellation
+quality hasn't been validated on a physical device — see
+[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#full-duplex--native-aec-spec-9-t18--optional)
+before relying on it. Check `NativeAecMicSource.isAvailable()` before
+using it; `VoiceSession` will refuse to start (with a `ConfigError`,
+not a crash) if you request full-duplex without it.
 
 ## Requirements
 
