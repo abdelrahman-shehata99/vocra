@@ -5,38 +5,47 @@ import 'dart:typed_data';
 import 'package:just_audio/just_audio.dart';
 import 'package:voice_core/voice_core.dart';
 
-/// Implements [AudioSink] via just_audio (spec §8.1): writes each clip to a
-/// temp file and appends it to the player's playlist (via
-/// [AudioPlayer.addAudioSource]) so playback continues without reloading
-/// the player between clips.
+/// Implements [AudioSink] via just_audio (spec §8.1).
 ///
 /// [AudioQueue] (voice_core) only ever has one clip in flight — it waits for
-/// [clipFinished] before calling [enqueue] again (spec §6.2's player-loop
-/// design) — so this mainly buys continuous playback state (no reload/seek
-/// gap, no re-acquiring the platform player) rather than true look-ahead
-/// prefetching. Using a persistent playlist regardless keeps this correct
-/// if AudioQueue is ever changed to pipeline clips ahead of time.
+/// [clipFinished] before submitting the next (spec §6.2's player-loop
+/// design). We lean on that guarantee and play each clip as its own single
+/// source ([AudioPlayer.setAudioSource] + [AudioPlayer.play]), reporting
+/// [clipFinished] when the player reaches [ProcessingState.completed].
+///
+/// Why not a growing playlist (as the spec sketches for gaplessness): because
+/// clips are submitted strictly one-at-a-time *after* the previous finished,
+/// the player has almost always already reached `completed` by the time the
+/// next clip arrives — and appending to an already-completed just_audio
+/// player does not reliably resume playback, which strands every clip after
+/// the first. A per-clip source sidesteps that entirely; the only cost is a
+/// small file-load gap between sentences (imperceptible in practice, and no
+/// worse than the serialized submission already implies).
 class FlutterAudioSink implements AudioSink {
   FlutterAudioSink({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
-    _currentIndexSub = _player.currentIndexStream.listen(_onPlaybackProgressed);
     _processingStateSub = _player.processingStateStream.listen(
-      (_) => _onPlaybackProgressed(_player.currentIndex),
+      _onProcessingState,
+      // A clip that fails to load/decode surfaces as a stream error. Treat it
+      // as finished so AudioQueue advances to the next sentence instead of
+      // hanging forever on a clip that will never reach `completed`.
+      onError: (Object _, StackTrace __) => _reportClipDone(),
     );
     _playerStateSub = _player.playerStateStream.listen(_onPlayerState);
   }
 
   final AudioPlayer _player;
-  bool _sourceAttached = false;
 
-  /// Index of the last clip we've already reported via [clipFinished].
-  /// Starts at -1 (none finished yet).
-  int _lastFinishedIndex = -1;
+  /// True between handing a clip to the player and observing it complete.
+  /// Guards [clipFinished] so the `completed` state is reported exactly once
+  /// per clip, and never spuriously (e.g. a `stopNow` doesn't emit
+  /// `completed`, and `setAudioSource` transitions through `loading`/`ready`,
+  /// not `completed`).
+  bool _awaitingClip = false;
 
   final List<File> _tempFiles = [];
   Directory? _tempDir;
   int _fileCounter = 0;
 
-  late final StreamSubscription<int?> _currentIndexSub;
   late final StreamSubscription<ProcessingState> _processingStateSub;
   late final StreamSubscription<PlayerState> _playerStateSub;
 
@@ -54,34 +63,26 @@ class FlutterAudioSink implements AudioSink {
   @override
   Future<void> enqueue(int index, Uint8List bytes, String format) async {
     final file = await _writeTempFile(bytes, format);
-    final source = AudioSource.file(file.path);
-
-    if (!_sourceAttached) {
-      _sourceAttached = true;
-      await _player.setAudioSource(source);
-    } else {
-      await _player.addAudioSource(source);
-    }
-
-    if (!_player.playing) {
-      unawaited(_player.play());
-    }
+    // Set the guard before loading the source so the *next* `completed` we
+    // see is unambiguously this clip finishing.
+    _awaitingClip = true;
+    await _player.setAudioSource(AudioSource.file(file.path));
+    // Not awaited: play() resolves only when the clip finishes, and letting
+    // its rejection escape an unawaited enqueue would surface as an unhandled
+    // async error. Completion is reported via processingStateStream instead.
+    unawaited(_player.play());
   }
 
   @override
   Future<void> stopNow() async {
+    _awaitingClip = false;
     await _player.stop();
-    if (_sourceAttached) {
-      await _player.clearAudioSources();
-    }
-    _sourceAttached = false;
-    _lastFinishedIndex = -1;
     await _deleteTempFiles();
   }
 
   @override
   Future<void> dispose() async {
-    await _currentIndexSub.cancel();
+    _awaitingClip = false;
     await _processingStateSub.cancel();
     await _playerStateSub.cancel();
     await _deleteTempFiles();
@@ -90,21 +91,17 @@ class FlutterAudioSink implements AudioSink {
     await _amplitudeController.close();
   }
 
-  /// Fires [clipFinished] for every playlist index that must have finished
-  /// given the player's current position: every index strictly before
-  /// [currentIndex] has necessarily played through, and if processing has
-  /// reached [ProcessingState.completed] while sitting on [currentIndex],
-  /// that one has finished too (there's nothing after it to advance to).
-  void _onPlaybackProgressed(int? currentIndex) {
-    if (currentIndex == null || _clipFinishedController.isClosed) return;
+  void _onProcessingState(ProcessingState state) {
+    if (state == ProcessingState.completed) _reportClipDone();
+  }
 
-    final completed = _player.processingState == ProcessingState.completed;
-    final finishedThrough = completed ? currentIndex : currentIndex - 1;
-
-    while (_lastFinishedIndex < finishedThrough) {
-      _lastFinishedIndex++;
-      _clipFinishedController.add(null);
-    }
+  /// Reports the in-flight clip as finished exactly once (clearing the guard
+  /// first), whether it completed normally or errored out. A no-op if no clip
+  /// is awaiting, so stray events can't fire a spurious [clipFinished].
+  void _reportClipDone() {
+    if (_clipFinishedController.isClosed || !_awaitingClip) return;
+    _awaitingClip = false;
+    _clipFinishedController.add(null);
   }
 
   void _onPlayerState(PlayerState state) {

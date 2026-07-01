@@ -195,11 +195,18 @@ class VoiceEngine {
 
     // Half-duplex pauses the mic during a turn — but only when there's a
     // live mic conversation to pause (R7). Typed-only turns skip this.
-    if (_isHalfDuplex && _conversationActive) {
-      _micForwardingEnabled = false;
-      await _mic.pause();
-    }
+    //
+    // Gate forwarding AND move to `thinking` synchronously, *before* the
+    // `await _mic.pause()` below yields the event loop. If we awaited first,
+    // a second STT final arriving during that yield would still observe
+    // `listening`, slip past the overlap guard above, and start a second
+    // concurrent turn — corrupting the shared per-turn state. Pausing the mic
+    // just after the transition is safe: `_micForwardingEnabled` already
+    // stops frames reaching STT the moment it's cleared.
+    final pauseMic = _isHalfDuplex && _conversationActive;
+    if (pauseMic) _micForwardingEnabled = false;
     _turnMachine.transitionTo(TurnState.thinking);
+    if (pauseMic) await _mic.pause();
 
     final stopwatch = Stopwatch()..start();
     _turnStopwatch = stopwatch;

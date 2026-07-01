@@ -59,6 +59,12 @@ class DeepgramStt implements SttTransport {
   StreamSubscription<dynamic>? _subscription;
   Timer? _keepAliveTimer;
 
+  /// The most recent non-empty transcript seen in a `Results` message, held
+  /// so a following `UtteranceEnd` can finalize it. Cleared on `speech_final`
+  /// (which finalizes directly) so a trailing `UtteranceEnd` can't re-emit
+  /// the same utterance and trigger a second turn.
+  String _lastTranscript = '';
+
   final StreamController<TranscriptEvent> _transcriptsController =
       StreamController<TranscriptEvent>.broadcast();
 
@@ -79,6 +85,11 @@ class DeepgramStt implements SttTransport {
         'interim_results': 'true',
         'punctuate': 'true',
         'endpointing': '300',
+        // Fallback end-of-utterance signal: Deepgram emits an `UtteranceEnd`
+        // message after this many ms of silence when endpointing alone didn't
+        // produce a `speech_final`. Without it, an utterance that never gets a
+        // `speech_final` would never trigger a turn (see _onMessage).
+        'utterance_end_ms': '1000',
       },
     );
 
@@ -152,6 +163,24 @@ class DeepgramStt implements SttTransport {
       return;
     }
 
+    // Fallback end-of-utterance signal. It carries no transcript of its own,
+    // so we finalize the last one we saw. If a `speech_final` already
+    // finalized this utterance it cleared `_lastTranscript`, so there's
+    // nothing to emit and we don't double-trigger a turn.
+    if (json['type'] == 'UtteranceEnd') {
+      final pending = _lastTranscript.trim();
+      if (pending.isEmpty) return;
+      _lastTranscript = '';
+      _transcriptsController.add(
+        TranscriptEvent(
+          source: TranscriptSource.user,
+          text: pending,
+          isFinal: true,
+        ),
+      );
+      return;
+    }
+
     final channel = json['channel'] as Map<String, dynamic>?;
     if (channel == null) return;
 
@@ -163,6 +192,13 @@ class DeepgramStt implements SttTransport {
     if (transcript == null) return;
 
     final speechFinal = json['speech_final'] as bool? ?? false;
+
+    // Track the latest transcript for a possible UtteranceEnd fallback.
+    // `speech_final` finalizes right here, so clear it to keep a trailing
+    // UtteranceEnd from re-emitting the same utterance.
+    if (transcript.trim().isNotEmpty) _lastTranscript = transcript;
+    if (speechFinal) _lastTranscript = '';
+
     _transcriptsController.add(
       TranscriptEvent(
         source: TranscriptSource.user,

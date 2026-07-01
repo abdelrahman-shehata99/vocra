@@ -17,9 +17,21 @@ import 'llm_provider.dart';
 /// `POST {baseUrl}/chat/completions`, `Authorization: Bearer <key>`, and
 /// `max_completion_tokens` (not the older `max_tokens` alias) for the token
 /// limit.
+///
+/// ⚠️ MODEL DEADLINE: the default [model] `llama-3.1-8b-instant` was
+/// deprecated by Groq on 2026-06-17 and is **retired on 2026-08-16** (free/
+/// developer tier). It works until then; after that it returns errors with
+/// no change on our side. Before that date, switch the default to Groq's
+/// recommended replacement `openai/gpt-oss-20b` — a reasoning model, so for
+/// voice latency also pass `reasoning_effort: 'low'` (and
+/// `include_reasoning: false`) so it doesn't "think" out loud before the
+/// first spoken word. Consumers can already pin any model per-app via
+/// `GroqLlm(model: ...)`. See console.groq.com/docs/deprecations.
 class GroqLlm implements LlmProvider {
   GroqLlm({
     required String apiKey,
+    // See the ⚠️ MODEL DEADLINE note above: swap this to
+    // `openai/gpt-oss-20b` before 2026-08-16.
     this.model = 'llama-3.1-8b-instant',
     String baseUrl = 'https://api.groq.com/openai/v1',
     Dio? dio,

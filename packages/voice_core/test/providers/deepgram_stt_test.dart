@@ -41,6 +41,7 @@ void main() {
       expect(capturedUri.queryParameters['interim_results'], 'true');
       expect(capturedUri.queryParameters['punctuate'], 'true');
       expect(capturedUri.queryParameters['endpointing'], '300');
+      expect(capturedUri.queryParameters['utterance_end_ms'], '1000');
       expect(capturedHeaders['Authorization'], 'Token secret-key');
 
       await stt.dispose();
@@ -143,6 +144,81 @@ void main() {
         await stt.dispose();
       },
     );
+
+    test(
+      'UtteranceEnd finalizes the last transcript when no speech_final arrives',
+      () async {
+        final fakeChannel = FakeWebSocketChannel();
+        final stt = DeepgramStt(
+          apiKey: 'key',
+          channelFactory: (uri, {required headers}) => fakeChannel,
+        );
+        await stt.start();
+
+        final events = <TranscriptEvent>[];
+        stt.transcripts.listen(events.add);
+
+        // A locked-in segment, but endpointing never fired speech_final.
+        fakeChannel.emit(
+          jsonEncode({
+            'type': 'Results',
+            'is_final': true,
+            'speech_final': false,
+            'channel': {
+              'alternatives': [
+                {'transcript': 'bye now'},
+              ],
+            },
+          }),
+        );
+        // Silence long enough that Deepgram gives up and sends UtteranceEnd.
+        fakeChannel.emit(
+          jsonEncode({'type': 'UtteranceEnd', 'last_word_end': 1.23}),
+        );
+        await pump();
+
+        // One interim (isFinal false) plus a synthesized final carrying the
+        // last transcript, so the engine can still start a turn.
+        expect(events.map((e) => (e.text, e.isFinal)).toList(), [
+          ('bye now', false),
+          ('bye now', true),
+        ]);
+
+        await stt.dispose();
+      },
+    );
+
+    test('UtteranceEnd after speech_final does not double-emit', () async {
+      final fakeChannel = FakeWebSocketChannel();
+      final stt = DeepgramStt(
+        apiKey: 'key',
+        channelFactory: (uri, {required headers}) => fakeChannel,
+      );
+      await stt.start();
+
+      final events = <TranscriptEvent>[];
+      stt.transcripts.listen(events.add);
+
+      fakeChannel.emit(
+        jsonEncode({
+          'type': 'Results',
+          'is_final': true,
+          'speech_final': true,
+          'channel': {
+            'alternatives': [
+              {'transcript': 'hello world'},
+            ],
+          },
+        }),
+      );
+      // A trailing UtteranceEnd for the same utterance must be ignored.
+      fakeChannel.emit(jsonEncode({'type': 'UtteranceEnd'}));
+      await pump();
+
+      expect(events.map((e) => e.isFinal).toList(), [true]);
+
+      await stt.dispose();
+    });
 
     test('ignores malformed and unrelated messages without crashing', () async {
       final fakeChannel = FakeWebSocketChannel();
