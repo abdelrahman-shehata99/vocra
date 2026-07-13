@@ -153,10 +153,20 @@ void main() {
 
     test('sendText starts a turn directly, bypassing STT', () async {
       final h = _Harness();
+      final userEvents = <TranscriptEvent>[];
+      h.engine.transcripts.listen((e) {
+        if (e.source == TranscriptSource.user) userEvents.add(e);
+      });
       await h.engine.startConversation();
 
       unawaited(h.engine.sendText('typed message'));
       await pump(3);
+
+      // Typed input still appears on the transcript stream (it has no STT
+      // leg to emit it), so the stream is the full conversation record.
+      expect(userEvents, hasLength(1));
+      expect(userEvents.single.text, 'typed message');
+      expect(userEvents.single.isFinal, isTrue);
 
       expect(h.llm.historySnapshots, hasLength(1));
       expect(h.llm.historySnapshots.single.last.content, 'typed message');
@@ -265,6 +275,39 @@ void main() {
 
         expect(errors, [isA<NetworkError>()]);
         expect(states.last, TurnState.listening);
+      },
+    );
+
+    test(
+      'assistant text streams as cumulative interim transcripts (word-by-word '
+      'UI rendering), then one final with the complete text',
+      () async {
+        final h = _Harness();
+        final assistantEvents = <TranscriptEvent>[];
+        h.engine.transcripts.listen((e) {
+          if (e.source == TranscriptSource.assistant) assistantEvents.add(e);
+        });
+
+        await h.engine.startConversation();
+        await pump();
+        h.stt.emitFinal('hi');
+        await pump(5);
+
+        h.llm.pushToken('Hello ');
+        await pump();
+        h.llm.pushToken('world. ');
+        await h.llm.endStream();
+        await pump(30);
+
+        final interims = assistantEvents.where((e) => !e.isFinal).toList();
+        expect(
+          interims.map((e) => e.text),
+          ['Hello ', 'Hello world. '],
+          reason: 'each token appends to a cumulative interim',
+        );
+        final finals = assistantEvents.where((e) => e.isFinal).toList();
+        expect(finals, hasLength(1));
+        expect(finals.single.text, 'Hello world. ');
       },
     );
 

@@ -59,11 +59,16 @@ class DeepgramStt implements SttTransport {
   StreamSubscription<dynamic>? _subscription;
   Timer? _keepAliveTimer;
 
-  /// The most recent non-empty transcript seen in a `Results` message, held
-  /// so a following `UtteranceEnd` can finalize it. Cleared on `speech_final`
-  /// (which finalizes directly) so a trailing `UtteranceEnd` can't re-emit
-  /// the same utterance and trigger a second turn.
-  String _lastTranscript = '';
+  /// Accumulated text of the current utterance: every `is_final` segment
+  /// concatenated in order. A single spoken utterance is frequently split by
+  /// Deepgram into MULTIPLE `is_final` results before `speech_final` arrives,
+  /// so the full utterance is the concatenation of them all — NOT just the
+  /// last one (per Deepgram's docs: "Do not use speech_final alone... long
+  /// utterances may have multiple is_final responses"). Emitting only the
+  /// last segment was the cause of the user being "heard only sometimes" /
+  /// truncated. Flushed (emitted as a final [TranscriptEvent]) on
+  /// `speech_final` or, as a fallback, on `UtteranceEnd`.
+  String _utteranceBuffer = '';
 
   final StreamController<TranscriptEvent> _transcriptsController =
       StreamController<TranscriptEvent>.broadcast();
@@ -93,12 +98,23 @@ class DeepgramStt implements SttTransport {
       },
     );
 
+    // ignore: avoid_print
+    print('[vocra] DeepgramStt: connecting WS -> $uri');
     final channel = _channelFactory(
       uri,
       headers: {'Authorization': 'Token $_apiKey'},
     );
     _channel = channel;
-    await channel.ready;
+    // Bound the connection wait so a network stall surfaces as a typed error
+    // instead of hanging the whole start() forever.
+    await channel.ready.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw const NetworkError(
+        'Deepgram STT connection timed out after 10s.',
+      ),
+    );
+    // ignore: avoid_print
+    print('[vocra] DeepgramStt: WS ready (connected)');
 
     _subscription = channel.stream.listen(
       _onMessage,
@@ -154,6 +170,11 @@ class DeepgramStt implements SttTransport {
   }
 
   void _onMessage(dynamic message) {
+    // ignore: avoid_print
+    print(
+      '[vocra] DeepgramStt raw msg: '
+      '${message is String ? (message.length > 220 ? message.substring(0, 220) : message) : message.runtimeType}',
+    );
     if (message is! String) return; // Deepgram sends JSON text frames
 
     final Map<String, dynamic> json;
@@ -163,47 +184,72 @@ class DeepgramStt implements SttTransport {
       return;
     }
 
-    // Fallback end-of-utterance signal. It carries no transcript of its own,
-    // so we finalize the last one we saw. If a `speech_final` already
-    // finalized this utterance it cleared `_lastTranscript`, so there's
-    // nothing to emit and we don't double-trigger a turn.
+    // `UtteranceEnd` is the fallback end-of-speech signal (fires after
+    // `utterance_end_ms` of silence when endpointing didn't produce a
+    // `speech_final`). It carries no transcript, so flush whatever we've
+    // accumulated. If `speech_final` already flushed it, the buffer is empty
+    // and this is a harmless no-op (no double-trigger). Per Deepgram's
+    // recommended end-of-speech logic.
     if (json['type'] == 'UtteranceEnd') {
-      final pending = _lastTranscript.trim();
-      if (pending.isEmpty) return;
-      _lastTranscript = '';
-      _transcriptsController.add(
-        TranscriptEvent(
-          source: TranscriptSource.user,
-          text: pending,
-          isFinal: true,
-        ),
-      );
+      _flushUtterance();
       return;
     }
 
     final channel = json['channel'] as Map<String, dynamic>?;
     if (channel == null) return;
-
     final alternatives = channel['alternatives'] as List<dynamic>?;
     if (alternatives == null || alternatives.isEmpty) return;
-
     final transcript =
         (alternatives.first as Map<String, dynamic>?)?['transcript'] as String?;
     if (transcript == null) return;
 
+    final segment = transcript.trim();
+    final isFinalSegment = json['is_final'] as bool? ?? false;
     final speechFinal = json['speech_final'] as bool? ?? false;
 
-    // Track the latest transcript for a possible UtteranceEnd fallback.
-    // `speech_final` finalizes right here, so clear it to keep a trailing
-    // UtteranceEnd from re-emitting the same utterance.
-    if (transcript.trim().isNotEmpty) _lastTranscript = transcript;
-    if (speechFinal) _lastTranscript = '';
+    // A finalized segment is locked in — append it to the utterance buffer.
+    if (isFinalSegment && segment.isNotEmpty) {
+      _utteranceBuffer = _utteranceBuffer.isEmpty
+          ? segment
+          : '$_utteranceBuffer $segment';
+    }
 
+    if (speechFinal) {
+      // End of utterance: emit the FULL accumulated text as final.
+      _flushUtterance();
+    } else {
+      // Still mid-utterance: emit a running interim (everything finalized so
+      // far, plus the current not-yet-final partial) for live UI / barge-in.
+      final partial = isFinalSegment ? '' : segment;
+      final running = [
+        _utteranceBuffer,
+        partial,
+      ].where((s) => s.isNotEmpty).join(' ').trim();
+      if (running.isNotEmpty) {
+        _emit(running, isFinal: false);
+      }
+    }
+  }
+
+  /// Emits the accumulated utterance as a final [TranscriptEvent] and resets
+  /// the buffer. No-op if nothing has accumulated.
+  void _flushUtterance() {
+    final full = _utteranceBuffer.trim();
+    _utteranceBuffer = '';
+    if (full.isNotEmpty) {
+      // ignore: avoid_print
+      print('[vocra] DeepgramStt: utterance FINAL -> "$full"');
+      _emit(full, isFinal: true);
+    }
+  }
+
+  void _emit(String text, {required bool isFinal}) {
+    if (_transcriptsController.isClosed) return;
     _transcriptsController.add(
       TranscriptEvent(
         source: TranscriptSource.user,
-        text: transcript,
-        isFinal: speechFinal,
+        text: text,
+        isFinal: isFinal,
       ),
     );
   }

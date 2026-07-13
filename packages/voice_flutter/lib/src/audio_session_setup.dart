@@ -21,9 +21,14 @@ class AudioSessionSetup {
         avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
         avAudioSessionCategoryOptions: categoryOptions,
         avAudioSessionMode: AVAudioSessionMode.voiceChat,
+        // Route the AI's TTS to the LOUDSPEAKER, not the earpiece. `media`
+        // usage (with `speech` content) plays on the normal media/speaker
+        // path — an assistant is not a phone call. Using
+        // `AndroidAudioUsage.voiceCommunication` here routed playback to the
+        // earpiece, so the reply was inaudible on speaker-only setups.
         androidAudioAttributes: const AndroidAudioAttributes(
           contentType: AndroidAudioContentType.speech,
-          usage: AndroidAudioUsage.voiceCommunication,
+          usage: AndroidAudioUsage.media,
         ),
         androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
       ),

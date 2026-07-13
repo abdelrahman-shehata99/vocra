@@ -15,7 +15,9 @@ export 'src/providers/llm_provider.dart';
 export 'src/providers/tts_provider.dart';
 export 'src/providers/stt_transport.dart';
 export 'src/providers/groq_llm.dart';
+export 'src/providers/gemini_llm.dart';
 export 'src/providers/deepgram_tts.dart';
+export 'src/providers/elevenlabs_tts.dart';
 export 'src/providers/deepgram_stt.dart';
 
 export 'src/transport/sse_parser.dart';

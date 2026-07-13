@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../io/audio_sink.dart';
 import '../io/mic_source.dart';
@@ -89,10 +90,34 @@ class VoiceEngine {
 
   Future<void> startConversation() async {
     _conversationActive = true;
+    // ignore: avoid_print
+    print('[vocra] engine.startConversation: mic.start()...');
     await _mic.start();
+    // ignore: avoid_print
+    print('[vocra] engine.startConversation: mic started; stt.start()...');
     await _stt.start();
+    // ignore: avoid_print
+    print('[vocra] engine.startConversation: stt started; wiring streams...');
 
+    var frameCount = 0;
     _micSub = _mic.pcm16.listen((frame) {
+      frameCount++;
+      if (frameCount <= 3 || frameCount % 50 == 0) {
+        // Peak sample amplitude distinguishes real audio from digital
+        // silence (frames of zeros) — the one failure mode a frame count
+        // alone cannot reveal.
+        var peak = 0;
+        final samples = ByteData.sublistView(frame);
+        for (var i = 0; i + 1 < frame.length; i += 2) {
+          final s = samples.getInt16(i, Endian.little).abs();
+          if (s > peak) peak = s;
+        }
+        // ignore: avoid_print
+        print(
+          '[vocra] mic frame #$frameCount (${frame.length}B) peak=$peak '
+          'forwarding=$_micForwardingEnabled',
+        );
+      }
       if (_micForwardingEnabled) _stt.sendAudio(frame);
     });
     _sttSub = _stt.transcripts.listen(
@@ -100,11 +125,15 @@ class VoiceEngine {
       // A dropped STT connection (e.g. Deepgram WS closed by the network)
       // surfaces as a stream error rather than silently going quiet (R4).
       onError: (Object error, StackTrace stackTrace) {
+        // ignore: avoid_print
+        print('[vocra] STT stream error: $error');
         if (error is VoiceError) _errorsController.add(error);
       },
     );
 
     _turnMachine.transitionTo(TurnState.listening);
+    // ignore: avoid_print
+    print('[vocra] engine.startConversation: state -> LISTENING');
   }
 
   Future<void> stopConversation() async {
@@ -118,8 +147,22 @@ class VoiceEngine {
     await _sttSub?.cancel();
     _sttSub = null;
 
-    await _mic.stop();
-    await _stt.stop();
+    // Best-effort teardown: a mic or STT transport that throws while
+    // stopping (e.g. an audio device already in a bad state) must not leave
+    // the engine stuck outside `idle`, or every later start attempt would
+    // be silently refused and the session could never be revived.
+    try {
+      await _mic.stop();
+    } catch (e) {
+      // ignore: avoid_print
+      print('[vocra] stopConversation: mic.stop() failed: $e');
+    }
+    try {
+      await _stt.stop();
+    } catch (e) {
+      // ignore: avoid_print
+      print('[vocra] stopConversation: stt.stop() failed: $e');
+    }
 
     _turnMachine.transitionTo(TurnState.idle);
   }
@@ -129,6 +172,12 @@ class VoiceEngine {
   /// entire LLM/TTS/playback cycle to finish — callers track progress via
   /// [turnState]/[transcripts]/[metrics], not this future.
   Future<void> sendText(String text) async {
+    // A spoken turn's user text reaches [transcripts] via STT; typed input
+    // has no STT leg, so emit the equivalent final user event here — the
+    // transcript stream is the full conversation record either way.
+    _transcriptsController.add(
+      TranscriptEvent(source: TranscriptSource.user, text: text, isFinal: true),
+    );
     unawaited(_beginTurn(text));
   }
 
@@ -162,6 +211,11 @@ class VoiceEngine {
   }
 
   void _onSttTranscript(TranscriptEvent event) {
+    // ignore: avoid_print
+    print(
+      '[vocra] STT transcript: isFinal=${event.isFinal} '
+      'text="${event.text}" (state=${_turnMachine.state})',
+    );
     _transcriptsController.add(event);
 
     // Full-duplex barge-in (spec §9): the mic was never paused, so real
@@ -179,6 +233,8 @@ class VoiceEngine {
     if (!event.isFinal) return;
     if (event.text.trim().isEmpty) return;
     if (_turnMachine.state != TurnState.listening) return;
+    // ignore: avoid_print
+    print('[vocra] >>> beginning turn from STT final: "${event.text}"');
     unawaited(_beginTurn(event.text));
   }
 
@@ -239,6 +295,8 @@ class VoiceEngine {
     var sentenceIndex = 0;
     var gotFirstToken = false;
 
+    // ignore: avoid_print
+    print('[vocra] turn -> THINKING; calling LLM...');
     try {
       await for (final token in _llm.streamCompletion(
         _history,
@@ -249,8 +307,22 @@ class VoiceEngine {
         if (!gotFirstToken) {
           gotFirstToken = true;
           _currentMetrics = _currentMetrics.copyWith(ttft: stopwatch.elapsed);
+          // ignore: avoid_print
+          print('[vocra] LLM first token @ ${stopwatch.elapsedMilliseconds}ms');
         }
         assistantText.write(token);
+
+        // Stream the assistant's text as it arrives (interim transcript,
+        // cumulative) so UIs can render the reply word-by-word while it is
+        // being spoken, mirroring user-side interims. The final event with
+        // the complete text still fires when the turn drains.
+        _transcriptsController.add(
+          TranscriptEvent(
+            source: TranscriptSource.assistant,
+            text: assistantText.toString(),
+            isFinal: false,
+          ),
+        );
 
         // Eager-split only while still waiting on the very first sentence,
         // to get the first TTS clip out as early as possible (lower TTFV).
@@ -266,8 +338,15 @@ class VoiceEngine {
         _submitSentence(remaining, sentenceIndex++, epoch, cancel, stopwatch);
       }
 
+      // ignore: avoid_print
+      print(
+        '[vocra] LLM stream done; assistant="${assistantText.toString()}" '
+        '($sentenceIndex sentences submitted)',
+      );
       _audioQueue.completeTurn();
     } on VoiceError catch (e) {
+      // ignore: avoid_print
+      print('[vocra] turn LLM error: $e');
       _errorsController.add(e);
       await _audioQueue.interrupt();
       await _cancelTurnSubs();
@@ -335,7 +414,15 @@ class VoiceEngine {
     unawaited(_cancelTurnSubs());
     if (_isHalfDuplex && _conversationActive) {
       _micForwardingEnabled = true;
-      unawaited(_mic.resume());
+      unawaited(() async {
+        // Release the platform audio output BEFORE restarting capture, so
+        // recording never reopens while the player still holds the output
+        // device — mirrors the ordering interrupt() already guarantees.
+        try {
+          await _audioQueue.releaseSink();
+        } catch (_) {}
+        await _mic.resume();
+      }());
     }
     _returnToRest();
   }

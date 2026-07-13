@@ -62,6 +62,8 @@ class FlutterAudioSink implements AudioSink {
 
   @override
   Future<void> enqueue(int index, Uint8List bytes, String format) async {
+    // ignore: avoid_print
+    print('[vocra] AudioSink.enqueue(index=$index, ${bytes.length}B) -> play');
     final file = await _writeTempFile(bytes, format);
     // Set the guard before loading the source so the *next* `completed` we
     // see is unambiguously this clip finishing.

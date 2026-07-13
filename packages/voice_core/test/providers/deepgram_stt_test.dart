@@ -146,6 +146,108 @@ void main() {
     );
 
     test(
+      'accumulates multiple is_final segments into the full final utterance',
+      () async {
+        // Deepgram splits a longer utterance into several is_final results
+        // before speech_final. The final event must contain the WHOLE
+        // utterance, not just the last segment (the "heard only sometimes" /
+        // truncation bug).
+        final fakeChannel = FakeWebSocketChannel();
+        final stt = DeepgramStt(
+          apiKey: 'key',
+          channelFactory: (uri, {required headers}) => fakeChannel,
+        );
+        await stt.start();
+
+        final finals = <String>[];
+        stt.transcripts
+            .where((e) => e.isFinal)
+            .listen((e) => finals.add(e.text));
+
+        void emitResults({
+          required String transcript,
+          required bool isFinal,
+          required bool speechFinal,
+        }) {
+          fakeChannel.emit(
+            jsonEncode({
+              'type': 'Results',
+              'is_final': isFinal,
+              'speech_final': speechFinal,
+              'channel': {
+                'alternatives': [
+                  {'transcript': transcript},
+                ],
+              },
+            }),
+          );
+        }
+
+        // Segment 1 finalizes (mid-utterance, no speech_final yet).
+        emitResults(
+          transcript: 'what is the weather',
+          isFinal: true,
+          speechFinal: false,
+        );
+        // Segment 2 finalizes and ends the utterance.
+        emitResults(
+          transcript: 'like in san francisco today',
+          isFinal: true,
+          speechFinal: true,
+        );
+        await pump();
+
+        expect(finals, [
+          'what is the weather like in san francisco today',
+        ]);
+
+        await stt.dispose();
+      },
+    );
+
+    test(
+      'UtteranceEnd flushes the full accumulation, not just the last segment',
+      () async {
+        final fakeChannel = FakeWebSocketChannel();
+        final stt = DeepgramStt(
+          apiKey: 'key',
+          channelFactory: (uri, {required headers}) => fakeChannel,
+        );
+        await stt.start();
+
+        final finals = <String>[];
+        stt.transcripts
+            .where((e) => e.isFinal)
+            .listen((e) => finals.add(e.text));
+
+        void emitFinalSegment(String t) => fakeChannel.emit(
+          jsonEncode({
+            'type': 'Results',
+            'is_final': true,
+            'speech_final': false,
+            'channel': {
+              'alternatives': [
+                {'transcript': t},
+              ],
+            },
+          }),
+        );
+
+        emitFinalSegment('turn on the');
+        emitFinalSegment('living room lights');
+        // No speech_final; UtteranceEnd fires instead.
+        fakeChannel.emit(
+          jsonEncode({'type': 'UtteranceEnd', 'last_word_end': 3.2}),
+        );
+        await pump();
+
+        expect(finals, ['turn on the living room lights']);
+
+        await stt.dispose();
+      },
+    );
+
+    test(
       'UtteranceEnd finalizes the last transcript when no speech_final arrives',
       () async {
         final fakeChannel = FakeWebSocketChannel();

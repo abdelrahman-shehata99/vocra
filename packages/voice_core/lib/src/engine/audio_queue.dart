@@ -108,6 +108,14 @@ class AudioQueue {
     await _sink.stopNow();
   }
 
+  /// Releases the underlying platform audio output without bumping the
+  /// epoch. Called by the engine once a turn has drained, so the output
+  /// device is fully closed before the mic restarts — an output stream
+  /// still held open while capture reopens corrupts mic input on some
+  /// Android devices/emulators (saturated garbage frames). The interrupt
+  /// and error paths already get this for free via [interrupt].
+  Future<void> releaseSink() => _sink.stopNow();
+
   Future<void> dispose() async {
     await _clipFinishedSub.cancel();
     await _drainedController.close();
