@@ -1,4 +1,17 @@
-// Public exports for vocra_core (spec §2). Populated as each piece lands.
+/// The pure-Dart brain of the Vocra voice AI SDK.
+///
+/// Vocra embeds a spoken AI conversation — the user speaks, speech-to-text
+/// transcribes, an LLM replies, and text-to-speech speaks the reply — with all
+/// orchestration on-device. This package has **no Flutter dependency**; Flutter
+/// apps should depend on `vocra_flutter`, which wires this engine to the
+/// microphone, audio playback, and permissions.
+///
+/// The entry points are [VoiceEngine] (the orchestrator) and [VoiceConfig]
+/// (the config surface). Providers are pluggable behind three interfaces —
+/// [LlmProvider], [SttTransport], and [TtsProvider] — with Groq/Gemini (LLM)
+/// and Deepgram/ElevenLabs (STT/TTS) adapters included. Every provider and
+/// engine failure surfaces as a typed [VoiceError], including mid-stream drops.
+library;
 
 export 'src/models/chat_message.dart';
 export 'src/models/turn_state.dart';

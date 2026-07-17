@@ -1,4 +1,29 @@
-// Public exports for vocra_flutter (spec §2 / §8). App-facing entry point is VoiceSession.
+/// The Flutter platform layer of the Vocra voice AI SDK.
+///
+/// This package wires the pure-Dart `vocra_core` engine to a device: microphone
+/// capture, audio playback, microphone permissions, and audio-session handling.
+/// It re-exports all of `vocra_core`, so a single import is enough:
+///
+/// ```dart
+/// import 'package:vocra_flutter/vocra_flutter.dart';
+///
+/// final session = VoiceSession(
+///   config: VoiceConfig(
+///     llm: GroqLlm(apiKey: groqKey),
+///     stt: DeepgramStt(apiKey: deepgramKey),
+///     tts: DeepgramTts(apiKey: deepgramKey),
+///     systemPrompt: 'You are a helpful voice assistant.',
+///     greeting: const Greeting.text('Hi! How can I help?'),
+///   ),
+/// );
+/// await session.requestPermissions();
+/// await session.start();
+/// ```
+///
+/// [VoiceSession] is the app-facing entry point. Add the platform microphone
+/// permission strings (iOS `NSMicrophoneUsageDescription`, Android
+/// `RECORD_AUDIO`) as described in the README before calling [VoiceSession.start].
+library;
 
 export 'package:vocra_core/vocra_core.dart';
 
