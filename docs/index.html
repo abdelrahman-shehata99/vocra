@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PersonaPlex — AI Voice Studio</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://api.groq.com" crossorigin>
+    <link rel="preconnect" href="https://api.elevenlabs.io" crossorigin>
+    <link rel="preconnect" href="https://api.deepgram.com" crossorigin>
+    <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN TOKENS
+       ═══════════════════════════════════════════════ */
+    :root {
+        --bg-primary:   #0a0a0f;
+        --bg-secondary: #12121a;
+        --bg-tertiary:  #1a1a26;
+        --bg-elevated:  #1e1e2a;
+
+        --border:       #2a2a3a;
+        --border-hover: #3a3a50;
+
+        --text-primary:   #e8e8f0;
+        --text-secondary: #9090a8;
+        --text-muted:     #606078;
+
+        --accent:      #7c5cfc;
+        --accent-light:#9b80ff;
+        --accent-dim:  rgba(124, 92, 252, 0.12);
+        --accent-glow: rgba(124, 92, 252, 0.25);
+
+        --green:      #3ecf8e;
+        --green-dim:  rgba(62, 207, 142, 0.12);
+        --red:        #f75c6b;
+        --red-dim:    rgba(247, 92, 107, 0.12);
+        --orange:     #f5a623;
+        --orange-dim: rgba(245, 166, 35, 0.12);
+        --cyan:       #22d3ee;
+        --cyan-dim:   rgba(34, 211, 238, 0.12);
+
+        --groq-color:   #f55036;
+        --groq-dim:     rgba(245, 80, 54, 0.12);
+        --gemini-color: #4285f4;
+        --gemini-dim:   rgba(66, 133, 244, 0.12);
+
+        --user-bubble: #7c5cfc;
+        --ai-bubble:   #1e1e2a;
+
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+
+        --ease: cubic-bezier(0.4, 0, 0.2, 1);
+        --transition: 0.2s var(--ease);
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESET & BASE
+       ═══════════════════════════════════════════════ */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: 'DM Sans', sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow: hidden;
+    }
+
+    .app { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+
+    /* ═══════════════════════════════════════════════ SIDEBAR ═══════ */
+    .sidebar {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar__header {
+        padding: 24px 20px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo__icon {
+        width: 40px; height: 40px; border-radius: var(--radius-md);
+        background: linear-gradient(135deg, var(--accent), #b44cff);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .logo__text {
+        font-family: 'Playfair Display', serif;
+        font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+        background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .logo__badge {
+        font-size: 10px; font-weight: 600; color: var(--accent);
+        background: var(--accent-dim); padding: 2px 8px; border-radius: 20px; margin-left: auto;
+    }
+
+    .sidebar__body {
+        flex: 1; overflow-y: auto; padding: 16px 20px 24px;
+        scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .sidebar__body::-webkit-scrollbar { width: 4px; }
+    .sidebar__body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .section { margin-bottom: 24px; }
+    .section__label {
+        font-size: 10px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 10px;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .field { margin-bottom: 14px; }
+    .field__label {
+        display: block; font-size: 12px; font-weight: 500;
+        color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .field__row { display: flex; gap: 6px; align-items: center; }
+    .field__meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+    .input {
+        width: 100%; padding: 10px 12px;
+        background: var(--bg-tertiary); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace; font-size: 12px;
+        transition: border-color var(--transition); outline: none;
+    }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+    .input::placeholder { color: var(--text-muted); font-family: 'DM Sans', sans-serif; }
+
+    select.input {
+        font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239090a8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+    }
+    textarea.input { font-family: 'DM Sans', sans-serif; font-size: 13px; resize: vertical; min-height: 100px; line-height: 1.5; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    .btn-sm {
+        padding: 8px 14px; font-size: 11px; font-weight: 600;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--bg-tertiary); color: var(--text-secondary);
+        cursor: pointer; transition: all var(--transition); white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .btn-sm.success { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .btn-sm.error   { border-color: var(--red);   color: var(--red);   background: var(--red-dim); }
+
+    .api-link { font-size: 11px; color: var(--text-muted); text-decoration: none; }
+    .api-link:hover { color: var(--accent); }
+    .api-status { font-size: 11px; min-height: 16px; }
+
+    /* — Conversations (sessions) — */
+    .conv-new-btn {
+        font-size: 11px; font-weight: 600; color: var(--accent);
+        background: var(--accent-dim); border: 1px solid transparent;
+        padding: 3px 9px; border-radius: 20px; cursor: pointer; transition: all var(--transition);
+    }
+    .conv-new-btn:hover { border-color: var(--accent); }
+    .conv-list { display: flex; flex-direction: column; gap: 4px; }
+    .conv-item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 10px; border-radius: var(--radius-sm);
+        background: var(--bg-tertiary); border: 1px solid transparent;
+        cursor: pointer; transition: all var(--transition); position: relative;
+    }
+    .conv-item:hover { border-color: var(--border-hover); }
+    .conv-item.active { border-color: var(--accent); background: var(--accent-dim); }
+    .conv-item__main { flex: 1; min-width: 0; }
+    .conv-item__title {
+        font-size: 12.5px; font-weight: 500; color: var(--text-primary);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .conv-item__time { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .conv-item__del {
+        opacity: 0; flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px;
+        border: none; background: transparent; color: var(--text-muted);
+        cursor: pointer; font-size: 14px; line-height: 1; transition: all var(--transition);
+    }
+    .conv-item:hover .conv-item__del { opacity: 1; }
+    .conv-item__del:hover { background: var(--red-dim); color: var(--red); }
+
+    /* ═══════ PROVIDER TOGGLE ═══════ */
+    .toggle-group {
+        display: flex; border-radius: var(--radius-sm); overflow: hidden;
+        border: 1px solid var(--border); margin-bottom: 14px;
+    }
+    .toggle-group__btn {
+        flex: 1; padding: 10px 8px; font-size: 12px; font-weight: 600; text-align: center;
+        background: var(--bg-tertiary); color: var(--text-muted); border: none; cursor: pointer;
+        transition: all var(--transition); display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .toggle-group__btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+    .toggle-group__btn.active { color: var(--text-primary); background: var(--bg-elevated); }
+    .toggle-group__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .toggle-group__btn[data-provider="groq"].active   { border-bottom: 2px solid var(--groq-color); }
+    .toggle-group__btn[data-provider="gemini"].active  { border-bottom: 2px solid var(--gemini-color); }
+    .toggle-group__btn[data-tts="deepgram"].active     { border-bottom: 2px solid var(--green); }
+    .toggle-group__btn[data-tts="elevenlabs"].active   { border-bottom: 2px solid var(--orange); }
+    .toggle-group__btn[data-stt="deepgram"].active     { border-bottom: 2px solid var(--green); }
+    .toggle-group__btn[data-stt="browser"].active      { border-bottom: 2px solid var(--cyan); }
+
+    .panel--hidden { display: none; }
+
+    .provider-badge {
+        font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .provider-badge.groq   { background: var(--groq-dim);   color: var(--groq-color); }
+    .provider-badge.gemini { background: var(--gemini-dim); color: var(--gemini-color); }
+
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+    .preset-chip {
+        padding: 8px 10px; font-size: 11px; font-weight: 500;
+        background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-sm);
+        color: var(--text-secondary); cursor: pointer; transition: all var(--transition); text-align: left; line-height: 1.3;
+    }
+    .preset-chip:hover  { border-color: var(--accent); color: var(--text-primary); background: var(--accent-dim); }
+    .preset-chip.active { border-color: var(--accent); color: var(--accent-light); background: var(--accent-dim); }
+
+    /* — Opening / greeting — */
+    .greet-switch { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: normal; font-size: 11px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+    .greet-switch input { width: 13px; height: 13px; accent-color: var(--accent); cursor: pointer; margin: 0; flex: none; }
+    .field-hint { font-size: 10px; color: var(--text-muted); line-height: 1.4; margin-top: 6px; }
+
+    /* ═══════ MAIN ═══════ */
+    .main { display: flex; flex-direction: column; background: var(--bg-primary); position: relative; overflow: hidden; }
+    .main::before {
+        content: ''; position: absolute; top: -200px; right: -200px;
+        width: 600px; height: 600px;
+        background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+        pointer-events: none; opacity: 0.3;
+    }
+    .topbar {
+        padding: 14px 28px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+        backdrop-filter: blur(12px); background: rgba(10, 10, 15, 0.8); z-index: 2; flex-wrap: wrap;
+    }
+    .status-pill {
+        display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px;
+        background: var(--bg-tertiary); border: 1px solid var(--border);
+        font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); transition: background var(--transition); }
+    .status-dot.listening  { background: var(--green);  animation: pulse-dot 1.5s ease infinite; }
+    .status-dot.streaming  { background: var(--cyan);   animation: pulse-dot 0.6s ease infinite; }
+    .status-dot.speaking   { background: var(--accent); animation: pulse-dot 1s ease infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+    .topbar__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .voice-tag { font-size: 11px; color: var(--text-muted); padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); border: 1px solid var(--border); }
+    .clear-btn {
+        padding: 6px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted);
+        background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm);
+        cursor: pointer; transition: all var(--transition);
+    }
+    .clear-btn:hover { color: var(--red); border-color: var(--red); background: var(--red-dim); }
+
+    .latency-bar { display: none; width: 100%; order: 10; padding-top: 8px; }
+    .latency-bar.show { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lb-chip {
+        display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; padding: 3px 8px; border-radius: 6px;
+        background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .lb-chip .lb-label { opacity: 0.6; }
+    .lb-chip .lb-val   { font-weight: 700; }
+    .lb-chip.fast .lb-val { color: var(--green); }
+    .lb-chip.mid  .lb-val { color: var(--orange); }
+    .lb-chip.slow .lb-val { color: var(--red); }
+
+    .visualizer { height: 44px; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 0 28px; flex-shrink: 0; z-index: 1; }
+    .viz-bar { width: 3px; height: 4px; background: var(--accent); border-radius: 2px; transition: height 0.06s linear; opacity: 0.3; }
+    .viz-bar.active { opacity: 1; }
+
+    .messages {
+        flex: 1; overflow-y: auto; padding: 20px 28px;
+        display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; z-index: 1;
+    }
+    .messages::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; opacity: 0.6; }
+    .welcome__icon {
+        width: 64px; height: 64px; border-radius: 20px;
+        background: linear-gradient(135deg, var(--accent-dim), rgba(180, 76, 255, 0.1));
+        border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px;
+    }
+    .welcome h2 { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; }
+    .welcome p { color: var(--text-muted); font-size: 14px; max-width: 400px; line-height: 1.5; }
+
+    .msg { max-width: 72%; animation: msg-in 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .msg--user      { align-self: flex-end; }
+    .msg--assistant { align-self: flex-start; }
+    .msg__label {
+        font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+        margin-bottom: 6px; padding: 0 4px; display: flex; align-items: center; gap: 8px;
+    }
+    .msg--user .msg__label      { color: var(--accent-light); justify-content: flex-end; }
+    .msg--assistant .msg__label { color: var(--green); }
+    .msg__bubble { padding: 14px 18px; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.6; word-wrap: break-word; }
+    .msg--user .msg__bubble { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 6px; }
+    .msg--assistant .msg__bubble { background: var(--ai-bubble); border: 1px solid var(--border); color: var(--text-primary); border-bottom-left-radius: 6px; }
+    .msg--interrupted .msg__bubble::after { content: ' ⏸ interrupted'; font-size: 10px; color: var(--orange); font-style: italic; }
+
+    .msg--streaming .msg__bubble::after {
+        content: ''; display: inline-block; width: 3px; height: 15px; background: var(--cyan);
+        border-radius: 1px; margin-left: 3px; vertical-align: text-bottom; animation: blink-cursor 0.6s step-end infinite;
+    }
+    @keyframes blink-cursor { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ═══════ PERF PANEL ═══════ */
+    .perf-panel {
+        margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    }
+    .perf-panel__header {
+        padding: 6px 10px; display: flex; align-items: center; justify-content: space-between;
+        cursor: pointer; user-select: none; color: var(--text-muted); transition: background var(--transition);
+    }
+    .perf-panel__header:hover { background: var(--bg-tertiary); }
+    .perf-panel__toggle { font-size: 8px; transition: transform var(--transition); }
+    .perf-panel.expanded .perf-panel__toggle { transform: rotate(90deg); }
+    .perf-panel__body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .perf-panel.expanded .perf-panel__body { max-height: 800px; }
+    .perf-table { width: 100%; border-collapse: collapse; }
+    .perf-table tr { border-top: 1px solid var(--border); }
+    .perf-table td { padding: 5px 10px; vertical-align: middle; }
+    .perf-table .perf-label { color: var(--text-muted); width: 55%; white-space: nowrap; }
+    .perf-table .perf-value { text-align: right; font-weight: 600; width: 20%; white-space: nowrap; }
+    .perf-table .perf-bar-cell { width: 25%; padding-right: 10px; }
+    .perf-bar-track { height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden; }
+    .perf-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; min-width: 2px; }
+    .speed-fast { color: var(--green); } .speed-mid { color: var(--orange); } .speed-slow { color: var(--red); }
+    .perf-bar-fill.speed-fast { background: var(--green); }
+    .perf-bar-fill.speed-mid  { background: var(--orange); }
+    .perf-bar-fill.speed-slow { background: var(--red); }
+    .perf-divider td { padding: 0; height: 1px; background: var(--border); }
+    .perf-total-row td { padding: 7px 10px; font-weight: 700; font-size: 11px; }
+    .perf-sentences-title {
+        color: var(--text-muted); padding: 6px 10px 2px; font-size: 9px;
+        text-transform: uppercase; letter-spacing: 1px; border-top: 1px solid var(--border);
+    }
+    .perf-sent-row .perf-label { font-size: 9px; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+    /* ═══════ INPUT AREA ═══════ */
+    .input-area { padding: 16px 28px 24px; flex-shrink: 0; z-index: 2; }
+    .interim-bar {
+        min-height: 0; max-height: 0; overflow: hidden; opacity: 0;
+        transition: all var(--transition); margin-bottom: 0;
+        font-size: 13px; color: var(--cyan); font-style: italic; padding: 0 4px;
+    }
+    .interim-bar.show { max-height: 40px; opacity: 1; margin-bottom: 8px; }
+    .input-row {
+        display: flex; gap: 10px; align-items: center;
+        background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 6px 6px 6px 18px; transition: border-color var(--transition);
+    }
+    .input-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .input-row input { flex: 1; background: transparent; border: none; color: var(--text-primary); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; padding: 8px 0; }
+    .input-row input::placeholder { color: var(--text-muted); }
+    .mic-btn, .send-btn {
+        width: 42px; height: 42px; border-radius: var(--radius-md); border: none;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        transition: all var(--transition); flex-shrink: 0; font-size: 18px;
+    }
+    .send-btn { background: var(--accent); color: #fff; }
+    .send-btn:hover { background: var(--accent-light); transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .mic-btn { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-secondary); }
+    .mic-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .mic-btn.active { background: var(--green); border-color: var(--green); color: #fff; animation: mic-pulse 1.5s ease infinite; }
+    @keyframes mic-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.4); } 50% { box-shadow: 0 0 0 8px rgba(62,207,142,0); } }
+    .input-hint { text-align: center; margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+    /* ═══════ TOAST ═══════ */
+    .toast {
+        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+        padding: 12px 24px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500;
+        z-index: 999; pointer-events: none; transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s; opacity: 0;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.error   { background: var(--red);   color: #fff; }
+    .toast.success { background: var(--green);  color: #fff; }
+    .toast.info    { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); }
+
+    /* ═══════ RESPONSIVE ═══════ */
+    @media (max-width: 900px) {
+        .app { grid-template-columns: 1fr; }
+        .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+        .sidebar.collapsed .sidebar__body { display: none; }
+        .mobile-toggle {
+            display: flex; align-items: center; justify-content: center; padding: 10px;
+            font-size: 12px; color: var(--text-muted); cursor: pointer; border-top: 1px solid var(--border);
+        }
+        .msg { max-width: 88%; }
+        .latency-bar { display: none !important; }
+    }
+    @media (min-width: 901px) { .mobile-toggle { display: none; } }
+    </style>
+</head>
+
+<body>
+<div class="app">
+    <!-- ═══════ SIDEBAR ═══════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar__header">
+            <div class="logo">
+                <div class="logo__icon">⚡</div>
+                <span class="logo__text">PersonaPlex</span>
+                <span class="logo__badge">v6</span>
+            </div>
+        </div>
+
+        <div class="sidebar__body">
+            <!-- Conversations -->
+            <div class="section">
+                <div class="section__label">Conversations <button class="conv-new-btn" id="newSessionBtn">+ New</button></div>
+                <div class="conv-list" id="sessionList"></div>
+            </div>
+
+            <!-- LLM Provider -->
+            <div class="section">
+                <div class="section__label">LLM Provider</div>
+                <div class="toggle-group" data-toggle="llm">
+                    <button class="toggle-group__btn active" data-provider="groq"><div class="toggle-group__dot" style="background:var(--groq-color)"></div>Groq</button>
+                    <button class="toggle-group__btn" data-provider="gemini"><div class="toggle-group__dot" style="background:var(--gemini-color)"></div>Gemini</button>
+                </div>
+
+                <div class="provider-panel" id="groqSection">
+                    <div class="field">
+                        <label class="field__label">Groq API Key</label>
+                        <div class="field__row">
+                            <input type="password" class="input" id="groqKey" placeholder="gsk_..." autocomplete="off">
+                            <button class="btn-sm" data-test="groq">Test</button>
+                        </div>
+                        <div class="field__meta">
+                            <a href="https://console.groq.com/keys" target="_blank" rel="noopener" class="api-link">Get free key →</a>
+                            <span class="api-status" id="groqStatus"></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Model</label>
+                        <select class="input" id="groqModel">
+                            <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B Instant ⚡</option>
+                            <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+                            <option value="llama3-8b-8192">Llama 3 8B 8192</option>
+                            <option value="llama3-70b-8192">Llama 3 70B 8192</option>
+                            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                            <option value="gemma2-9b-it">Gemma 2 9B</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="provider-panel panel--hidden" id="geminiSection">
+                    <div class="field">
+                        <label class="field__label">Gemini API Key</label>
+                        <div class="field__row">
+                            <input type="password" class="input" id="geminiKey" placeholder="AIza..." autocomplete="off">
+                            <button class="btn-sm" data-test="gemini">Test</button>
+                        </div>
+                        <div class="field__meta">
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="api-link">Get free key →</a>
+                            <span class="api-status" id="geminiStatus"></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Model</label>
+                        <select class="input" id="geminiModel">
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TTS Provider -->
+            <div class="section">
+                <div class="section__label">Voice (TTS)</div>
+                <div class="toggle-group" data-toggle="tts">
+                    <button class="toggle-group__btn active" data-tts="deepgram"><div class="toggle-group__dot" style="background:var(--green)"></div>Deepgram</button>
+                    <button class="toggle-group__btn" data-tts="elevenlabs"><div class="toggle-group__dot" style="background:var(--orange)"></div>ElevenLabs</button>
+                </div>
+
+                <div class="tts-panel" id="deepgramSection">
+                    <div class="field">
+                        <label class="field__label">API Key <span style="color:var(--text-muted);font-weight:400">(used for voice + speech)</span></label>
+                        <div class="field__row">
+                            <input type="password" class="input" id="deepgramKey" placeholder="dg_..." autocomplete="off">
+                            <button class="btn-sm" data-test="deepgram">Test</button>
+                        </div>
+                        <div class="field__meta">
+                            <a href="https://console.deepgram.com/" target="_blank" rel="noopener" class="api-link">Get free key ($200 credit) →</a>
+                            <span class="api-status" id="deepgramStatus"></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Voice</label>
+                        <select class="input" id="deepgramVoice">
+                            <optgroup label="Female">
+                                <option value="aura-asteria-en" selected>Asteria — warm, natural</option>
+                                <option value="aura-luna-en">Luna — soft, gentle</option>
+                                <option value="aura-stella-en">Stella — clear, bright</option>
+                                <option value="aura-athena-en">Athena — British, poised</option>
+                                <option value="aura-hera-en">Hera — mature, confident</option>
+                            </optgroup>
+                            <optgroup label="Male">
+                                <option value="aura-orion-en">Orion — deep, resonant</option>
+                                <option value="aura-arcas-en">Arcas — smooth, calm</option>
+                                <option value="aura-perseus-en">Perseus — bold, clear</option>
+                                <option value="aura-angus-en">Angus — Irish, warm</option>
+                                <option value="aura-orpheus-en">Orpheus — rich, expressive</option>
+                                <option value="aura-helios-en">Helios — British, articulate</option>
+                                <option value="aura-zeus-en">Zeus — commanding, deep</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="tts-panel panel--hidden" id="elevenLabsSection">
+                    <div class="field">
+                        <label class="field__label">API Key</label>
+                        <div class="field__row">
+                            <input type="password" class="input" id="elevenLabsKey" placeholder="sk_..." autocomplete="off">
+                            <button class="btn-sm" data-test="elevenlabs">Test</button>
+                        </div>
+                        <div class="field__meta">
+                            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener" class="api-link">Get free key →</a>
+                            <span class="api-status" id="elevenLabsStatus"></span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Voice</label>
+                        <select class="input" id="elevenLabsVoice">
+                            <optgroup label="Female">
+                                <option value="EXAVITQu4vr4xnSDxMaL">Sarah — soft, warm</option>
+                                <option value="21m00Tcm4TlvDq8ikWAM">Rachel — calm, clear</option>
+                                <option value="AZnzlk1XvdvUeBnXmlld">Domi — strong, confident</option>
+                                <option value="MF3mGyEYCl7XYWbV9V6O">Elli — youthful, friendly</option>
+                                <option value="ThT5KcBeYPX3keUQqHPh">Dorothy — deep, narration</option>
+                            </optgroup>
+                            <optgroup label="Male">
+                                <option value="pNInz6obpgDQGcFmaJgB">Adam — deep, versatile</option>
+                                <option value="yoZ06aMxZJJ28mfd3POQ">Sam — smooth, professional</option>
+                                <option value="TxGEqnHWrfWFTfGW9XjX">Josh — engaging, warm</option>
+                                <option value="VR6AewLTigWG4xSOukaG">Arnold — bold, commanding</option>
+                                <option value="ErXwobaYiN019PkySvjV">Antoni — friendly, casual</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">TTS Model</label>
+                        <select class="input" id="ttsModel">
+                            <option value="eleven_flash_v2_5" selected>Flash v2.5 (lowest latency)</option>
+                            <option value="eleven_turbo_v2_5">Turbo v2.5 (balanced)</option>
+                            <option value="eleven_multilingual_v2">Multilingual v2 (quality)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Stability: <span id="stabilityVal">0.50</span></label>
+                        <input type="range" min="0" max="100" value="50" id="stability">
+                    </div>
+                    <div class="field">
+                        <label class="field__label">Clarity: <span id="similarityVal">0.75</span></label>
+                        <input type="range" min="0" max="100" value="75" id="similarity">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speech input (STT) -->
+            <div class="section">
+                <div class="section__label">Speech (STT)</div>
+                <div class="toggle-group" data-toggle="stt">
+                    <button class="toggle-group__btn active" data-stt="deepgram"><div class="toggle-group__dot" style="background:var(--green)"></div>Deepgram</button>
+                    <button class="toggle-group__btn" data-stt="browser"><div class="toggle-group__dot" style="background:var(--cyan)"></div>Browser</button>
+                </div>
+                <div class="field">
+                    <label class="field__label">Recognition Language</label>
+                    <select class="input" id="speechLang">
+                        <option value="en-US">English (US)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="ar-SA">Arabic</option>
+                        <option value="es-ES">Spanish</option>
+                        <option value="fr-FR">French</option>
+                        <option value="de-DE">German</option>
+                        <option value="ja-JP">Japanese</option>
+                        <option value="zh-CN">Chinese</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label">Interrupt sensitivity: <span id="interruptVal">balanced</span></label>
+                    <input type="range" min="1" max="3" value="2" step="1" id="interruptSensitivity">
+                </div>
+            </div>
+
+            <!-- Persona -->
+            <div class="section">
+                <div class="section__label">Persona</div>
+                <div class="field">
+                    <textarea class="input" id="personaPrompt">You are a wise and friendly teacher. Answer clearly and concisely for voice delivery.</textarea>
+                </div>
+                <div class="preset-grid" id="presetGrid">
+                    <button class="preset-chip active" data-prompt="You are a wise and friendly teacher. Answer clearly and concisely for voice delivery.">📚 Teacher</button>
+                    <button class="preset-chip" data-prompt="You are a helpful, empathetic bank agent named Sanni. Be professional.">🏦 Bank Agent</button>
+                    <button class="preset-chip" data-prompt="You are astronaut Alex on Mars. Discuss reactor issues urgently.">🚀 Astronaut</button>
+                    <button class="preset-chip" data-prompt="You are a patient tech support agent. Help step by step.">💻 Tech Support</button>
+                    <button class="preset-chip" data-prompt="You are a cheerful fitness coach. Motivate with energy.">💪 Fitness Coach</button>
+                    <button class="preset-chip" data-prompt="You are a creative storyteller. Vivid, concise narratives.">📖 Storyteller</button>
+                </div>
+            </div>
+
+            <!-- Opening (AI greets first) -->
+            <div class="section">
+                <div class="section__label">
+                    Opening
+                    <label class="greet-switch"><input type="checkbox" id="greetEnabled" checked>AI greets first</label>
+                </div>
+                <div class="field">
+                    <select class="input" id="greetMode">
+                        <option value="generate" selected>Generate in character</option>
+                        <option value="exact">Say exactly as written</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <textarea class="input" id="greetingPrompt" rows="2">Warmly greet the user in one short sentence and invite them to start talking.</textarea>
+                    <div class="field-hint" id="greetHint"></div>
+                </div>
+            </div>
+
+            <!-- Generation -->
+            <div class="section">
+                <div class="section__label">Generation</div>
+                <div class="field">
+                    <label class="field__label">Temperature: <span id="tempVal">0.9</span></label>
+                    <input type="range" min="0" max="200" value="90" id="temperature">
+                </div>
+                <div class="field">
+                    <label class="field__label">Max Tokens: <span id="tokensVal">120</span></label>
+                    <input type="range" min="50" max="1024" value="120" step="10" id="maxTokens">
+                </div>
+            </div>
+        </div>
+
+        <div class="mobile-toggle" id="mobileToggle"><span>▲ Settings</span></div>
+    </aside>
+
+    <!-- ═══════ MAIN CHAT ═══════ -->
+    <main class="main">
+        <div class="topbar">
+            <div class="status-pill">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+            <span class="provider-badge groq" id="providerBadge">GROQ</span>
+            <div class="latency-bar" id="latencyBar">
+                <div class="lb-chip" id="lbTTFT"><span class="lb-label">TTFT</span> <span class="lb-val" id="lbTTFTv">—</span></div>
+                <div class="lb-chip" id="lbSent"><span class="lb-label">1st Sent</span> <span class="lb-val" id="lbSentv">—</span></div>
+                <div class="lb-chip" id="lbTTS"><span class="lb-label">TTS₁</span> <span class="lb-val" id="lbTTSv">—</span></div>
+                <div class="lb-chip" id="lbTTFV"><span class="lb-label">TTFV</span> <span class="lb-val" id="lbTTFVv">—</span></div>
+                <div class="lb-chip" id="lbStream"><span class="lb-label">Stream</span> <span class="lb-val" id="lbStreamv">—</span></div>
+                <div class="lb-chip" id="lbTotal"><span class="lb-label">Total</span> <span class="lb-val" id="lbTotalv">—</span></div>
+            </div>
+            <div class="topbar__right">
+                <span class="voice-tag" id="voiceTag">Asteria</span>
+                <button class="clear-btn" id="clearBtn">Clear</button>
+            </div>
+        </div>
+
+        <div class="visualizer" id="visualizer"></div>
+
+        <div class="messages" id="messages">
+            <div class="welcome" id="welcomeState">
+                <div class="welcome__icon">🎙️</div>
+                <h2>PersonaPlex Studio</h2>
+                <p>Add your API keys, tap the mic, and just talk. The AI stops the moment you start speaking — like a real conversation.</p>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="interim-bar" id="interimBar"><span id="interimText"></span></div>
+            <div class="input-row">
+                <input type="text" id="messageInput" placeholder="Type a message…" autocomplete="off">
+                <button class="mic-btn" id="micBtn" title="Start a voice conversation" aria-label="Start a voice conversation">🎤</button>
+                <button class="send-btn" id="sendBtn" title="Send message" aria-label="Send message">↑</button>
+            </div>
+            <div class="input-hint" id="inputHint">Enter to send · 🎤 start talking</div>
+        </div>
+    </main>
+</div>
+
+<div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════ -->
+<script>
+(() => {
+'use strict';
+
+/* ── 1. CONFIG ── */
+const CONFIG = Object.freeze({
+    MAX_HISTORY: 40,
+    BAR_COUNT: 48,
+    MIN_SENTENCE_LEN: 3,
+    EAGER_MIN_LEN: 15,
+    EAGER_FALLBACK_LEN: 40,
+    THRESHOLDS: Object.freeze({
+        ttft:[150,600], firstSentenceReady:[300,1000], firstTtsDuration:[500,1200],
+        audioDecode:[30,100], ttfv:[800,2000], streamDone:[1000,3000], total:[2000,5000], sentenceTts:[500,1200],
+    }),
+    PERSONA_SUFFIX: '\nBe concise, conversational. No markdown.',
+    STORAGE_PREFIX: 'pp6_',
+    TEST_RESET_MS: 2500,
+    TTS_MAX_RETRIES: 1,
+    TTS_RETRY_DELAY_MS: 1000,
+    // Barge-in: minimum recognised characters before we count it as the user
+    // genuinely interrupting (higher = less sensitive to stray noise / echo).
+    BARGEIN_CHARS: Object.freeze({ 1: 2, 2: 5, 3: 9 }),
+    BARGEIN_LABELS: Object.freeze({ 1: 'eager', 2: 'balanced', 3: 'relaxed' }),
+});
+
+/* ── 2. DOM ── */
+const $ = id => document.getElementById(id);
+const DOM = Object.freeze({
+    groqKey:$('groqKey'), geminiKey:$('geminiKey'), elevenLabsKey:$('elevenLabsKey'), deepgramKey:$('deepgramKey'),
+    groqModel:$('groqModel'), geminiModel:$('geminiModel'), ttsModel:$('ttsModel'),
+    deepgramVoice:$('deepgramVoice'), elevenLabsVoice:$('elevenLabsVoice'),
+    groqSection:$('groqSection'), geminiSection:$('geminiSection'), deepgramSection:$('deepgramSection'), elevenLabsSection:$('elevenLabsSection'),
+    groqStatus:$('groqStatus'), geminiStatus:$('geminiStatus'), deepgramStatus:$('deepgramStatus'), elevenLabsStatus:$('elevenLabsStatus'),
+    stability:$('stability'), similarity:$('similarity'), temperature:$('temperature'), maxTokens:$('maxTokens'),
+    stabilityVal:$('stabilityVal'), similarityVal:$('similarityVal'), tempVal:$('tempVal'), tokensVal:$('tokensVal'),
+    interruptSensitivity:$('interruptSensitivity'), interruptVal:$('interruptVal'),
+    personaPrompt:$('personaPrompt'), presetGrid:$('presetGrid'),
+    greetEnabled:$('greetEnabled'), greetMode:$('greetMode'), greetingPrompt:$('greetingPrompt'), greetHint:$('greetHint'),
+    messageInput:$('messageInput'), messages:$('messages'),
+    micBtn:$('micBtn'), sendBtn:$('sendBtn'), clearBtn:$('clearBtn'), speechLang:$('speechLang'),
+    statusDot:$('statusDot'), statusText:$('statusText'), voiceTag:$('voiceTag'), providerBadge:$('providerBadge'),
+    latencyBar:$('latencyBar'), visualizer:$('visualizer'), toast:$('toast'),
+    sessionList:$('sessionList'), newSessionBtn:$('newSessionBtn'),
+    interimBar:$('interimBar'), interimText:$('interimText'), inputHint:$('inputHint'),
+});
+
+/* ── 3. STATE ── */
+const state = {
+    turn: 'idle',          // idle | listening | thinking | speaking
+    live: false,           // mic conversation mode active
+    interrupted: false,    // a barge-in is being handled
+    activeProvider: 'groq',
+    activeTtsProvider: 'deepgram',
+    activeSttProvider: 'deepgram',
+    abortController: null,
+    audioContext: null, analyserNode: null, micAnalyser: null, micStream: null, animationId: null,
+    stt: null,
+    sessions: [], currentSessionId: null,
+};
+
+/* ── 4. UTILS ── */
+const Utils = {
+    speedClass(ms, key) { const [f,m]=CONFIG.THRESHOLDS[key]||[500,1500]; return ms<=f?'fast':ms<=m?'mid':'slow'; },
+    speedCss(ms, key) { return 'speed-'+this.speedClass(ms,key); },
+    sleep(ms) { return new Promise(r=>setTimeout(r,ms)); },
+    escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+    uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); },
+    relTime(ts) {
+        const s=Math.floor((Date.now()-ts)/1000);
+        if(s<60) return 'just now';
+        if(s<3600) return Math.floor(s/60)+'m ago';
+        if(s<86400) return Math.floor(s/3600)+'h ago';
+        return Math.floor(s/86400)+'d ago';
+    },
+};
+
+/* ── 5. TOAST ── */
+const Toast = (() => {
+    let timer=null;
+    return { show(msg,type='info',dur=3000){ clearTimeout(timer); DOM.toast.textContent=msg; DOM.toast.className=`toast ${type}`;
+        requestAnimationFrame(()=>DOM.toast.classList.add('show')); timer=setTimeout(()=>DOM.toast.classList.remove('show'),dur); } };
+})();
+
+/* ── 6. STATUS BAR ── */
+const StatusBar = { set(text,mode=''){ DOM.statusText.textContent=text; DOM.statusDot.className='status-dot'+(mode?` ${mode}`:''); } };
+
+/* ── 7. TURN STATE MACHINE ──
+   One source of truth for what the agent is doing. Replaces the old
+   isListening / isProcessing / isSpeaking booleans so barge-in is safe. */
+const TurnState = {
+    set(next) {
+        state.turn = next;
+        switch (next) {
+            case 'listening': StatusBar.set('Listening…','listening'); break;
+            case 'thinking':  StatusBar.set('Thinking…','streaming'); break;
+            case 'speaking':  StatusBar.set('Speaking…','speaking'); break;
+            default:          StatusBar.set(state.live ? 'Listening…' : 'Ready', state.live ? 'listening' : ''); break;
+        }
+        DOM.micBtn.classList.toggle('active', state.live);
+    },
+    is(...s) { return s.includes(state.turn); },
+};
+
+/* ── 8. KEY / SETTINGS STORAGE (keys are device-local only) ── */
+const Storage = {
+    _k(n){ return CONFIG.STORAGE_PREFIX+n; },
+    saveKeys() {
+        try {
+            localStorage.setItem(this._k('groq_key'), DOM.groqKey.value);
+            localStorage.setItem(this._k('gemini_key'), DOM.geminiKey.value);
+            localStorage.setItem(this._k('elevenlabs_key'), DOM.elevenLabsKey.value);
+            localStorage.setItem(this._k('deepgram_key'), DOM.deepgramKey.value);
+        } catch(e) {}
+    },
+    loadKeys() {
+        try {
+            const g=n=>localStorage.getItem(this._k(n));
+            if(g('groq_key')) DOM.groqKey.value=g('groq_key');
+            if(g('gemini_key')) DOM.geminiKey.value=g('gemini_key');
+            if(g('elevenlabs_key')) DOM.elevenLabsKey.value=g('elevenlabs_key');
+            if(g('deepgram_key')) DOM.deepgramKey.value=g('deepgram_key');
+        } catch(e) {}
+    },
+};
+
+/* ── 9. SETTINGS SNAPSHOT (per session) ── */
+const Settings = {
+    /** Read all conversation settings from the controls. */
+    snapshot() {
+        return {
+            provider: state.activeProvider,
+            ttsProvider: state.activeTtsProvider,
+            sttProvider: state.activeSttProvider,
+            groqModel: DOM.groqModel.value,
+            geminiModel: DOM.geminiModel.value,
+            ttsModel: DOM.ttsModel.value,
+            deepgramVoice: DOM.deepgramVoice.value,
+            elevenLabsVoice: DOM.elevenLabsVoice.value,
+            persona: DOM.personaPrompt.value,
+            temperature: DOM.temperature.value,
+            maxTokens: DOM.maxTokens.value,
+            stability: DOM.stability.value,
+            similarity: DOM.similarity.value,
+            speechLang: DOM.speechLang.value,
+            interruptSensitivity: DOM.interruptSensitivity.value,
+            greetEnabled: DOM.greetEnabled.checked,
+            greetMode: DOM.greetMode.value,
+            greeting: DOM.greetingPrompt.value,
+        };
+    },
+    /** Apply a snapshot back onto the controls. */
+    apply(s) {
+        if(!s) return;
+        if(s.groqModel) DOM.groqModel.value = s.groqModel;
+        if(s.geminiModel) DOM.geminiModel.value = s.geminiModel;
+        if(s.ttsModel) DOM.ttsModel.value = s.ttsModel;
+        if(s.deepgramVoice) DOM.deepgramVoice.value = s.deepgramVoice;
+        if(s.elevenLabsVoice) DOM.elevenLabsVoice.value = s.elevenLabsVoice;
+        if(typeof s.persona === 'string') DOM.personaPrompt.value = s.persona;
+        if(s.temperature) DOM.temperature.value = s.temperature;
+        if(s.maxTokens) DOM.maxTokens.value = s.maxTokens;
+        if(s.stability) DOM.stability.value = s.stability;
+        if(s.similarity) DOM.similarity.value = s.similarity;
+        if(s.speechLang) DOM.speechLang.value = s.speechLang;
+        if(s.interruptSensitivity) DOM.interruptSensitivity.value = s.interruptSensitivity;
+        if(typeof s.greetEnabled === 'boolean') DOM.greetEnabled.checked = s.greetEnabled;
+        if(s.greetMode) DOM.greetMode.value = s.greetMode;
+        if(typeof s.greeting === 'string') DOM.greetingPrompt.value = s.greeting;
+        Sliders.refresh();
+        if(s.provider) ProviderToggle.switchLLM(s.provider, true);
+        if(s.ttsProvider) ProviderToggle.switchTTS(s.ttsProvider, true);
+        if(s.sttProvider) ProviderToggle.switchSTT(s.sttProvider, true);
+        VoiceTagUpdater.update();
+        Greeting.syncHint();
+    },
+};
+
+/* ── 10. SESSION MANAGER (the persistent "brain") ── */
+const Sessions = {
+    _k: CONFIG.STORAGE_PREFIX+'sessions',
+    _ck: CONFIG.STORAGE_PREFIX+'current',
+
+    load() {
+        try {
+            state.sessions = JSON.parse(localStorage.getItem(this._k) || '[]');
+            state.currentSessionId = localStorage.getItem(this._ck);
+        } catch(e) { state.sessions = []; }
+        if(!Array.isArray(state.sessions) || !state.sessions.length) {
+            this._create();
+        } else if(!this.current()) {
+            state.currentSessionId = state.sessions[0].id;
+        }
+    },
+    persist() {
+        try {
+            localStorage.setItem(this._k, JSON.stringify(state.sessions));
+            localStorage.setItem(this._ck, state.currentSessionId);
+        } catch(e) {}
+    },
+    current() { return state.sessions.find(s => s.id === state.currentSessionId) || null; },
+
+    _create() {
+        const s = { id: Utils.uid(), title: 'New conversation', createdAt: Date.now(), updatedAt: Date.now(),
+                    messages: [], settings: Settings.snapshot() };
+        state.sessions.unshift(s);
+        state.currentSessionId = s.id;
+        return s;
+    },
+
+    /** Start a fresh conversation, snapshotting the live one first. */
+    newSession() {
+        Conversation.stopLive();
+        this._saveCurrentSettings();
+        this._create();
+        this.persist();
+        Settings.apply(this.current().settings);
+        ChatUI.repaint([]);
+        this.renderList();
+        Toast.show('New conversation', 'info');
+        Greeting.maybeGreet();
+    },
+
+    switchTo(id) {
+        if(id === state.currentSessionId) return;
+        Conversation.stopLive();
+        this._saveCurrentSettings();
+        state.currentSessionId = id;
+        const s = this.current();
+        if(!s) return;
+        Settings.apply(s.settings);
+        ChatUI.repaint(s.messages);
+        this.persist();
+        this.renderList();
+    },
+
+    deleteSession(id) {
+        state.sessions = state.sessions.filter(s => s.id !== id);
+        if(state.currentSessionId === id) {
+            Conversation.stopLive();
+            if(!state.sessions.length) this._create();
+            else state.currentSessionId = state.sessions[0].id;
+            const s = this.current();
+            Settings.apply(s.settings);
+            ChatUI.repaint(s.messages);
+        }
+        this.persist();
+        this.renderList();
+    },
+
+    _saveCurrentSettings() {
+        const s = this.current();
+        if(s) s.settings = Settings.snapshot();
+    },
+
+    /** Append a message to the current session and persist. Returns the stored object. */
+    addMessage(role, content, meta) {
+        const s = this.current();
+        if(!s) return null;
+        const m = { role, content, meta: meta || null };
+        s.messages.push(m);
+        s.updatedAt = Date.now();
+        if(role === 'user' && !(meta && meta.hidden) && (s.title === 'New conversation' || !s.title)) {
+            s.title = content.slice(0, 42) + (content.length > 42 ? '…' : '');
+        }
+        this.persist();
+        this.renderList();
+        return m;
+    },
+
+    /** Update a specific message object (race-safe across overlapping turns). */
+    updateMessage(ref, content, interrupted) {
+        if(!ref) return;
+        ref.content = content;
+        ref.meta = { interrupted: !!interrupted };
+        const s = this.current(); if(s) s.updatedAt = Date.now();
+        this.persist();
+    },
+
+    /** History trimmed in user/model pairs so it always starts with a user turn (fixes Gemini). */
+    historyForModel() {
+        const s = this.current();
+        if(!s) return [];
+        let msgs = s.messages.filter(m => m.content && m.content.trim());
+        if(msgs.length > CONFIG.MAX_HISTORY) msgs = msgs.slice(-CONFIG.MAX_HISTORY);
+        if(msgs.length && msgs[0].role === 'assistant') msgs = msgs.slice(1);
+        return msgs;
+    },
+
+    renderList() {
+        DOM.sessionList.innerHTML = '';
+        state.sessions
+            .slice()
+            .sort((a,b) => b.updatedAt - a.updatedAt)
+            .forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'conv-item' + (s.id === state.currentSessionId ? ' active' : '');
+                const main = document.createElement('div');
+                main.className = 'conv-item__main';
+                const title = document.createElement('div');
+                title.className = 'conv-item__title';
+                title.textContent = s.title || 'New conversation';
+                const time = document.createElement('div');
+                time.className = 'conv-item__time';
+                const count = s.messages.filter(m => m.role === 'user' && !(m.meta && m.meta.hidden)).length;
+                time.textContent = Utils.relTime(s.updatedAt) + (count ? ` · ${count} turn${count>1?'s':''}` : '');
+                main.append(title, time);
+                const del = document.createElement('button');
+                del.className = 'conv-item__del';
+                del.textContent = '×';
+                del.title = 'Delete conversation';
+                del.addEventListener('click', e => { e.stopPropagation(); this.deleteSession(s.id); });
+                item.append(main, del);
+                item.addEventListener('click', () => this.switchTo(s.id));
+                DOM.sessionList.appendChild(item);
+            });
+    },
+};
+
+/* ── 11. PROVIDER TOGGLES ── */
+const ProviderToggle = {
+    switchLLM(provider, silent) {
+        state.activeProvider = provider;
+        document.querySelectorAll('.toggle-group__btn[data-provider]').forEach(b => b.classList.toggle('active', b.dataset.provider === provider));
+        DOM.groqSection.classList.toggle('panel--hidden', provider !== 'groq');
+        DOM.geminiSection.classList.toggle('panel--hidden', provider !== 'gemini');
+        DOM.providerBadge.className = `provider-badge ${provider}`;
+        DOM.providerBadge.textContent = provider.toUpperCase();
+        if(!silent) Sessions._saveCurrentSettings(), Sessions.persist();
+    },
+    switchTTS(provider, silent) {
+        state.activeTtsProvider = provider;
+        document.querySelectorAll('.toggle-group__btn[data-tts]').forEach(b => b.classList.toggle('active', b.dataset.tts === provider));
+        DOM.deepgramSection.classList.toggle('panel--hidden', provider !== 'deepgram');
+        DOM.elevenLabsSection.classList.toggle('panel--hidden', provider !== 'elevenlabs');
+        VoiceTagUpdater.update();
+        if(!silent) Sessions._saveCurrentSettings(), Sessions.persist();
+    },
+    switchSTT(provider, silent) {
+        state.activeSttProvider = provider;
+        document.querySelectorAll('.toggle-group__btn[data-stt]').forEach(b => b.classList.toggle('active', b.dataset.stt === provider));
+        if(!silent) Sessions._saveCurrentSettings(), Sessions.persist();
+    },
+    init() {
+        document.querySelectorAll('.toggle-group__btn[data-provider]').forEach(b => b.addEventListener('click', () => this.switchLLM(b.dataset.provider)));
+        document.querySelectorAll('.toggle-group__btn[data-tts]').forEach(b => b.addEventListener('click', () => this.switchTTS(b.dataset.tts)));
+        document.querySelectorAll('.toggle-group__btn[data-stt]').forEach(b => b.addEventListener('click', () => this.switchSTT(b.dataset.stt)));
+    },
+};
+
+/* ── 12. VOICE TAG ── */
+const VoiceTagUpdater = {
+    update() {
+        const sel = state.activeTtsProvider === 'deepgram' ? DOM.deepgramVoice : DOM.elevenLabsVoice;
+        DOM.voiceTag.textContent = sel.options[sel.selectedIndex].text.split('—')[0].trim();
+    },
+    init() {
+        DOM.elevenLabsVoice.addEventListener('change', () => { this.update(); Sessions._saveCurrentSettings(); Sessions.persist(); });
+        DOM.deepgramVoice.addEventListener('change', () => { this.update(); Sessions._saveCurrentSettings(); Sessions.persist(); });
+        this.update();
+    },
+};
+
+/* ── 13. SLIDERS ── */
+const Sliders = {
+    _fmt() {
+        DOM.stabilityVal.textContent = (DOM.stability.value/100).toFixed(2);
+        DOM.similarityVal.textContent = (DOM.similarity.value/100).toFixed(2);
+        DOM.tempVal.textContent = (DOM.temperature.value/100).toFixed(1);
+        DOM.tokensVal.textContent = DOM.maxTokens.value;
+        DOM.interruptVal.textContent = CONFIG.BARGEIN_LABELS[DOM.interruptSensitivity.value] || 'balanced';
+    },
+    refresh() { this._fmt(); },
+    init() {
+        [DOM.stability,DOM.similarity,DOM.temperature,DOM.maxTokens,DOM.interruptSensitivity].forEach(sl => {
+            sl.addEventListener('input', () => this._fmt());
+            sl.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); });
+        });
+        this._fmt();
+    },
+};
+
+/* ── 14. PRESET CHIPS ── */
+const PresetChips = {
+    init() {
+        DOM.presetGrid.addEventListener('click', e => {
+            const chip = e.target.closest('.preset-chip');
+            if(!chip) return;
+            DOM.presetGrid.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            DOM.personaPrompt.value = chip.dataset.prompt;
+            Sessions._saveCurrentSettings(); Sessions.persist();
+        });
+        DOM.personaPrompt.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); });
+    },
+};
+
+/* ── 15. API KEY TESTER ── */
+const ApiTester = {
+    _tests: {
+        groq: { getKey:()=>DOM.groqKey.value.trim(), statusEl:()=>DOM.groqStatus,
+            async run(key){ const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:DOM.groqModel.value,messages:[{role:'user',content:'Hi'}],max_tokens:5})});
+                if(!r.ok){const e=await r.json().catch(()=>null);throw new Error(e?.error?.message||`HTTP ${r.status}`);} return '✓ Working'; } },
+        gemini: { getKey:()=>DOM.geminiKey.value.trim(), statusEl:()=>DOM.geminiStatus,
+            async run(key){ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${DOM.geminiModel.value}:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}]})});
+                if(!r.ok){const e=await r.json().catch(()=>null);throw new Error(e?.error?.message||`HTTP ${r.status}`);} return '✓ Working'; } },
+        deepgram: { getKey:()=>DOM.deepgramKey.value.trim(), statusEl:()=>DOM.deepgramStatus,
+            async run(key){ const r=await fetch('https://api.deepgram.com/v1/speak?model=aura-asteria-en',{method:'POST',headers:{'Authorization':`Token ${key}`,'Content-Type':'application/json'},body:JSON.stringify({text:'Test'})});
+                if(!r.ok) throw new Error(`HTTP ${r.status}`); return '✓ Working (voice + speech)'; } },
+        elevenlabs: { getKey:()=>DOM.elevenLabsKey.value.trim(), statusEl:()=>DOM.elevenLabsStatus,
+            async run(key){ const r=await fetch('https://api.elevenlabs.io/v1/user',{headers:{'xi-api-key':key}});
+                if(!r.ok) throw new Error(`HTTP ${r.status}`); const d=await r.json();
+                const used=(d?.subscription?.character_count||0).toLocaleString(); const limit=(d?.subscription?.character_limit||0).toLocaleString();
+                return `✓ ${used}/${limit} chars`; } },
+    },
+    async execute(name, btn) {
+        const cfg=this._tests[name]; if(!cfg) return;
+        const key=cfg.getKey(); const statusEl=cfg.statusEl();
+        if(!key){ statusEl.innerHTML='<span style="color:var(--red)">Enter key</span>'; return; }
+        btn.textContent='…'; btn.disabled=true;
+        try { const msg=await cfg.run(key); statusEl.innerHTML=`<span style="color:var(--green)">${msg}</span>`; btn.className='btn-sm success'; btn.textContent='✓'; }
+        catch(e){ statusEl.innerHTML=`<span style="color:var(--red)">✗ ${Utils.escapeHtml(e.message)}</span>`; btn.className='btn-sm error'; btn.textContent='✗'; }
+        finally { btn.disabled=false; setTimeout(()=>{btn.className='btn-sm';btn.textContent='Test';},CONFIG.TEST_RESET_MS); }
+    },
+    init() { document.addEventListener('click', e => { const btn=e.target.closest('[data-test]'); if(btn) this.execute(btn.dataset.test,btn); }); },
+};
+
+/* ── 16. AUDIO CONTEXT ── */
+const AudioCtx = {
+    ensure() {
+        if(!state.audioContext || state.audioContext.state==='closed') state.audioContext=new (window.AudioContext||window.webkitAudioContext)();
+        if(state.audioContext.state==='suspended') state.audioContext.resume();
+    },
+    init() { document.addEventListener('click', () => this.ensure(), { once: true }); },
+};
+
+/* ── 17. VISUALIZER ── */
+const Visualizer = {
+    bars: [],
+    init() {
+        for(let i=0;i<CONFIG.BAR_COUNT;i++){ const b=document.createElement('div'); b.className='viz-bar'; DOM.visualizer.appendChild(b); }
+        this.bars=DOM.visualizer.querySelectorAll('.viz-bar');
+    },
+    start() {
+        this.bars.forEach(b=>b.classList.add('active'));
+        cancelAnimationFrame(state.animationId);
+        const animate=()=>{
+            if(TurnState.is('idle') && !state.live){ this.stop(); return; }
+            if(state.analyserNode && state.audioContext?.state==='running'){
+                const data=new Uint8Array(state.analyserNode.frequencyBinCount);
+                state.analyserNode.getByteFrequencyData(data);
+                this.bars.forEach((b,i)=>{ const s=data[Math.floor(i*data.length/CONFIG.BAR_COUNT)]||0; b.style.height=Math.max(4,(s/255)*36)+'px'; });
+            } else {
+                this.bars.forEach((b,i)=>{ b.style.height=(6+Math.sin(performance.now()/300+i*0.4)*12+Math.random()*4)+'px'; });
+            }
+            state.animationId=requestAnimationFrame(animate);
+        };
+        animate();
+    },
+    stop() {
+        cancelAnimationFrame(state.animationId); state.animationId=null;
+        this.bars.forEach(b=>{ b.style.height='4px'; b.classList.remove('active'); });
+    },
+};
+
+/* ── 18. INTERIM TRANSCRIPT DISPLAY ── */
+const Interim = {
+    show(text) { DOM.interimText.textContent = text; DOM.interimBar.classList.add('show'); },
+    clear() { DOM.interimText.textContent=''; DOM.interimBar.classList.remove('show'); },
+};
+
+/* ── 19. SPEECH-TO-TEXT PROVIDERS ──
+   Common shape: start(stream, lang, key, handlers) / stop().
+   handlers = { onOpen, onInterim(text), onFinal(text), onError(msg) } */
+
+const DeepgramStt = {
+    ws:null, recorder:null, _ka:null,
+    _lang(l){ return l || 'en-US'; },
+    start(stream, lang, key, handlers) {
+        const params = new URLSearchParams({
+            model:'nova-2', smart_format:'true', interim_results:'true',
+            vad_events:'true', endpointing:'300', utterance_end_ms:'1000', language:this._lang(lang),
+        });
+        let ws;
+        try { ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${params}`, ['token', key]); }
+        catch(e){ handlers.onError?.('Could not open Deepgram'); return; }
+        this.ws = ws;
+        let finalized = '';
+        ws.onopen = () => {
+            try {
+                const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+                const rec = mime ? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
+                this.recorder = rec;
+                rec.ondataavailable = e => { if(ws.readyState===1 && e.data.size>0) ws.send(e.data); };
+                rec.start(250);
+                this._ka = setInterval(()=>{ if(ws.readyState===1) ws.send(JSON.stringify({type:'KeepAlive'})); }, 8000);
+                handlers.onOpen?.();
+            } catch(e){ handlers.onError?.('Recorder failed'); }
+        };
+        ws.onmessage = ev => {
+            let d; try { d=JSON.parse(ev.data); } catch { return; }
+            if(d.type==='Results') {
+                const t=(d.channel?.alternatives?.[0]?.transcript||'').trim();
+                if(d.is_final && t) finalized = finalized ? finalized+' '+t : t;
+                const live=(finalized+' '+(d.is_final?'':t)).trim();
+                if(live) handlers.onInterim?.(live);
+                if(d.speech_final){ const u=finalized.trim(); finalized=''; if(u) handlers.onFinal?.(u); }
+            } else if(d.type==='UtteranceEnd') {
+                const u=finalized.trim(); finalized=''; if(u) handlers.onFinal?.(u);
+            } else if(d.type==='Error' || d.error) {
+                handlers.onError?.(d.description || d.reason || 'Deepgram error');
+            }
+        };
+        ws.onerror = () => handlers.onError?.('Deepgram connection error');
+        ws.onclose = ev => { if(ev.code!==1000 && ev.code!==1005) handlers.onError?.('Deepgram disconnected'); };
+    },
+    stop() {
+        clearInterval(this._ka); this._ka=null;
+        try { this.recorder && this.recorder.state!=='inactive' && this.recorder.stop(); } catch {}
+        try { if(this.ws?.readyState===1) this.ws.send(JSON.stringify({type:'CloseStream'})); this.ws?.close(1000); } catch {}
+        this.recorder=null; this.ws=null;
+    },
+};
+
+const BrowserStt = {
+    rec:null, _stopped:false,
+    start(stream, lang, key, handlers) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(!SR){ handlers.onError?.('Browser speech recognition unavailable'); return; }
+        const rec = new SR();
+        rec.continuous=true; rec.interimResults=true; rec.lang=lang||'en-US';
+        this.rec=rec; this._stopped=false;
+        rec.onresult = e => {
+            let interim='', final='';
+            for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) final+=r[0].transcript; else interim+=r[0].transcript; }
+            const live=(final+' '+interim).trim();
+            if(live) handlers.onInterim?.(live);
+            if(final.trim()) handlers.onFinal?.(final.trim());
+        };
+        rec.onerror = e => { if(e.error==='not-allowed') handlers.onError?.('Microphone access denied'); };
+        rec.onend = () => { if(!this._stopped){ try{ rec.start(); }catch{} } };
+        try { rec.start(); handlers.onOpen?.(); } catch(e){ handlers.onError?.('Could not start recognition'); }
+    },
+    stop() { this._stopped=true; try{ this.rec?.stop(); }catch{} this.rec=null; },
+};
+
+/* ── 20. CHAT UI ── */
+const ChatUI = {
+    removeWelcome() { const w=$('welcomeState'); if(w) w.remove(); },
+    _bubbleEl(role, text) {
+        const msg=document.createElement('div'); msg.className=`msg msg--${role}`;
+        const label=document.createElement('div'); label.className='msg__label';
+        label.textContent = role==='user' ? 'You' : DOM.voiceTag.textContent;
+        const bubble=document.createElement('div'); bubble.className='msg__bubble'; bubble.textContent=text;
+        msg.append(label,bubble); return { msg, bubble };
+    },
+    addMessage(role, text, meta) {
+        this.removeWelcome();
+        const { msg, bubble } = this._bubbleEl(role, text);
+        if(meta && meta.interrupted) msg.classList.add('msg--interrupted');
+        DOM.messages.appendChild(msg); DOM.messages.scrollTop=DOM.messages.scrollHeight;
+        return msg;
+    },
+    createStreamMsg() {
+        this.removeWelcome();
+        const msg=document.createElement('div'); msg.className='msg msg--assistant msg--streaming';
+        const label=document.createElement('div'); label.className='msg__label'; label.textContent=DOM.voiceTag.textContent;
+        const bubble=document.createElement('div'); bubble.className='msg__bubble';
+        msg.append(label,bubble); DOM.messages.appendChild(msg); DOM.messages.scrollTop=DOM.messages.scrollHeight;
+        return { msg, bubble };
+    },
+    updateStreamBubble(bubble, text) { if(bubble){ bubble.textContent=text; DOM.messages.scrollTop=DOM.messages.scrollHeight; } },
+    finalizeStreamMsg(msg, metrics, interrupted) {
+        if(msg){ msg.classList.remove('msg--streaming'); if(interrupted) msg.classList.add('msg--interrupted'); if(metrics) msg.appendChild(PerfPanel.build(metrics)); }
+        DOM.messages.scrollTop=DOM.messages.scrollHeight;
+    },
+    /** Rebuild the whole transcript from a session's messages. */
+    repaint(messages) {
+        DOM.messages.innerHTML='';
+        const visible = (messages || []).filter(m => !(m.meta && m.meta.hidden));
+        if(!visible.length){
+            DOM.messages.innerHTML = `<div class="welcome" id="welcomeState"><div class="welcome__icon">🎙️</div><h2>PersonaPlex Studio</h2><p>Add your API keys, tap the mic, and just talk. The AI stops the moment you start speaking — like a real conversation.</p></div>`;
+            return;
+        }
+        visible.forEach(m => this.addMessage(m.role, m.content, m.meta));
+    },
+};
+
+/* ── 21. PERF PANEL ── */
+const PerfPanel = {
+    build(metrics) {
+        const panel=document.createElement('div'); panel.className='perf-panel';
+        const header=document.createElement('div'); header.className='perf-panel__header';
+        const ttfvStr=metrics.ttfv!=null?metrics.ttfv+'ms':'—'; const totalStr=metrics.total!=null?metrics.total+'ms':'—';
+        const badge=`<span class="provider-badge ${state.activeProvider}" style="margin-right:6px">${state.activeProvider.toUpperCase()}</span>`;
+        header.innerHTML=`<span>${badge}TTFV ${ttfvStr} · Total ${totalStr}</span><span class="perf-panel__toggle">▶</span>`;
+        header.addEventListener('click',()=>panel.classList.toggle('expanded')); panel.appendChild(header);
+        const body=document.createElement('div'); body.className='perf-panel__body';
+        const allVals=[metrics.ttft,metrics.firstSentenceReady,metrics.firstTtsDuration,metrics.audioDecode,metrics.ttfv,metrics.streamDone,metrics.total].filter(v=>v!=null);
+        const maxVal=Math.max(...allVals,1);
+        const row=(label,val,key,isTotal=false)=>{ if(val==null) return ''; const cls=Utils.speedCss(val,key); const pct=Math.min(100,(val/maxVal)*100);
+            return `<tr class="${isTotal?'perf-total-row':''}"><td class="perf-label">${label}</td><td class="perf-value ${cls}">${val}ms</td><td class="perf-bar-cell"><div class="perf-bar-track"><div class="perf-bar-fill ${cls}" style="width:${pct}%"></div></div></td></tr>`; };
+        const pName=state.activeProvider==='groq'?'Groq':'Gemini';
+        let html='<table class="perf-table">';
+        html+=row(`${pName} TTFT`,metrics.ttft,'ttft');
+        html+=row('1st sentence ready',metrics.firstSentenceReady,'firstSentenceReady');
+        html+=row('TTS₁ synthesis',metrics.firstTtsDuration,'firstTtsDuration');
+        html+=row('Audio decode',metrics.audioDecode,'audioDecode');
+        html+='<tr class="perf-divider"><td colspan="3"></td></tr>';
+        html+=row('⚡ TTFV (1st voice)',metrics.ttfv,'ttfv');
+        html+=row('Stream complete',metrics.streamDone,'streamDone');
+        html+='<tr class="perf-divider"><td colspan="3"></td></tr>';
+        html+=row('Total',metrics.total,'total',true);
+        html+='</table>';
+        if(metrics.sentences?.length){
+            const sentMax=Math.max(...metrics.sentences.map(s=>s.tts||0),1);
+            html+='<div class="perf-sentences-title">Per-Sentence TTS</div><table class="perf-table">';
+            metrics.sentences.forEach((s,i)=>{ const preview=s.text.length>35?s.text.slice(0,35)+'…':s.text; const cls=Utils.speedCss(s.tts||0,'sentenceTts'); const pct=Math.min(100,((s.tts||0)/sentMax)*100);
+                html+=`<tr class="perf-sent-row"><td class="perf-label" title="${Utils.escapeHtml(s.text)}">S${i+1}: ${Utils.escapeHtml(preview)}</td><td class="perf-value ${cls}">${s.tts||'—'}ms</td><td class="perf-bar-cell"><div class="perf-bar-track"><div class="perf-bar-fill ${cls}" style="width:${pct}%"></div></div></td></tr>`; });
+            html+='</table>';
+        }
+        body.innerHTML=html; panel.appendChild(body); return panel;
+    },
+};
+
+/* ── 22. LATENCY BAR ── */
+const LatencyBar = {
+    update(metrics) {
+        DOM.latencyBar.classList.add('show');
+        const set=(id,val,key)=>{ if(val==null) return; const chip=$(id); const valEl=$(id+'v'); valEl.textContent=val+'ms'; chip.className='lb-chip '+Utils.speedClass(val,key); };
+        set('lbTTFT',metrics.ttft,'ttft'); set('lbSent',metrics.firstSentenceReady,'firstSentenceReady'); set('lbTTS',metrics.firstTtsDuration,'firstTtsDuration');
+        set('lbTTFV',metrics.ttfv,'ttfv'); set('lbStream',metrics.streamDone,'streamDone'); set('lbTotal',metrics.total,'total');
+    },
+};
+
+/* ── 23. SENTENCE SPLITTER ── */
+const SentenceSplitter = {
+    _abbrevPattern: /(?:Mr|Mrs|Ms|Dr|Prof|Jr|Sr|St|vs|etc|approx|dept|govt|avg|e\.g|i\.e)\.\s*$/i,
+    extract(buf, eager=false) {
+        const sentences=[]; const re=/[^.!?\n]*[.!?]+[\s]|[^\n]+\n/g; let match; let lastIndex=0;
+        while((match=re.exec(buf))!==null){ const c=match[0].trim(); if(c.length>CONFIG.MIN_SENTENCE_LEN && !this._abbrevPattern.test(c)) sentences.push(c); lastIndex=re.lastIndex; }
+        if(sentences.length>0) return { sentences, remainder: buf.slice(lastIndex) };
+        if(eager && buf.length>CONFIG.EAGER_MIN_LEN){
+            let bestIdx=-1;
+            for(const sep of [', ','; ',': ','— ']){ const i=buf.indexOf(sep,12); if(i!==-1 && (bestIdx===-1||i<bestIdx)) bestIdx=i; }
+            if(bestIdx!==-1){ sentences.push(buf.slice(0,bestIdx+1).trim()); return { sentences, remainder: buf.slice(bestIdx+2) }; }
+            if(buf.trim().length>CONFIG.EAGER_FALLBACK_LEN){ sentences.push(buf.trim()); return { sentences, remainder:'' }; }
+        }
+        return { sentences, remainder: buf.slice(lastIndex) };
+    },
+};
+
+/* ── 24. ORDERED AUDIO QUEUE (with instant stop for barge-in) ──
+   Plays synthesized clips strictly in slot order, exactly one at a time.
+   A single owner-token player loop (_play) owns playback for its epoch, so
+   two clips can never overlap. _drain only ever *enqueues* ready slots and
+   wakes the loop; it never starts a second concurrent player. A barge-in
+   bumps the epoch, which the loop checks at every await boundary and then
+   abandons quietly, leaving the new turn's loop in sole control. */
+const AudioQueue = {
+    _slots:[], _nextPlay:0, _queue:[], _runningEpoch:null, _currentSource:null, _epoch:0,
+    epoch() { return this._epoch; },
+    reset() { this._epoch++; this._runningEpoch=null; this._slots=[]; this._nextPlay=0; this._queue=[]; this._currentSource=null; },
+    /** Stop everything immediately — used when the user interrupts (barge-in). */
+    hardStop() {
+        try { if(this._currentSource){ this._currentSource.onended=null; this._currentSource.stop(0); } } catch {}
+        this.reset();
+    },
+    reserve() { const idx=this._slots.length; this._slots.push({blob:null,onPlay:null,ready:false}); return idx; },
+    fill(idx, epoch, blob, onPlay) { if(epoch!==this._epoch || idx<0 || idx>=this._slots.length) return; Object.assign(this._slots[idx],{blob,onPlay,ready:true}); this._drain(); },
+    skip(idx, epoch) { this.fill(idx,epoch,null,null); },
+
+    /** Move every ready, in-order slot into the play queue. */
+    _enqueueReady() {
+        while(this._nextPlay<this._slots.length && this._slots[this._nextPlay].ready){
+            const slot=this._slots[this._nextPlay++];
+            if(slot.blob) this._queue.push({ blob:slot.blob, onPlay:slot.onPlay });
+        }
+    },
+    /** Enqueue what's ready, then make sure the single player loop is running.
+        Safe to call any time; the owner token prevents a second loop. */
+    _drain() {
+        this._enqueueReady();
+        if(this._runningEpoch===null) this._play();
+    },
+
+    /** The one and only playback loop. Re-entry is blocked by the owner token. */
+    async _play() {
+        if(this._runningEpoch!==null) return;            // a loop already owns playback
+        const myEpoch=this._epoch;
+        this._runningEpoch=myEpoch;
+        if(this._queue.length && TurnState.is('thinking','listening')) TurnState.set('speaking');
+        try {
+            while(this._queue.length){
+                if(this._epoch!==myEpoch) return;        // interrupted — abandon quietly
+                const { blob, onPlay }=this._queue.shift();
+                try {
+                    AudioCtx.ensure();
+                    const arrayBuf=await blob.arrayBuffer();
+                    const audioBuf=await state.audioContext.decodeAudioData(arrayBuf);
+                    if(this._epoch!==myEpoch) return;    // interrupted while decoding
+                    const analyser=state.audioContext.createAnalyser(); analyser.fftSize=128;
+                    const source=state.audioContext.createBufferSource(); source.buffer=audioBuf;
+                    source.connect(analyser); analyser.connect(state.audioContext.destination);
+                    this._currentSource=source; state.analyserNode=analyser; Visualizer.start();
+                    if(onPlay) onPlay();
+                    await new Promise(resolve=>{ source.onended=resolve; source.start(0); });
+                } catch(e) {
+                    /* decode/interrupt error for this clip — skip it, keep the rest playing */
+                } finally {
+                    if(this._epoch===myEpoch) this._currentSource=null;
+                }
+                if(this._epoch!==myEpoch) return;        // stale loop must not touch new state
+                this._enqueueReady();                    // grab anything that became ready mid-clip
+            }
+        } finally {
+            if(this._runningEpoch===myEpoch) this._runningEpoch=null;
+        }
+        if(this._epoch!==myEpoch) return;
+        // Drained for now: either more arrived (keep going) or the turn is done.
+        if(this._queue.length || (this._nextPlay<this._slots.length && this._slots[this._nextPlay]?.ready)) this._drain();
+        else this._onQueueEmpty();
+    },
+
+    /** Turn-taking handoff once everything queued has finished playing. */
+    _onQueueEmpty() {
+        if(this._runningEpoch!==null) return;
+        if(state.live && !state.interrupted && TurnState.is('speaking')){
+            if(state.micAnalyser) state.analyserNode=state.micAnalyser;
+            TurnState.set('listening'); Visualizer.start();
+        } else if(!state.live && TurnState.is('speaking')){
+            TurnState.set('idle'); Visualizer.stop();
+        }
+    },
+};
+
+/* ── 25. TTS SERVICE ── */
+const TtsService = {
+    _clean(t){ return t.replace(/[*_#`~]/g,'').replace(/\[.*?\]\(.*?\)/g,'').trim(); },
+    async synthesize(sentence) {
+        const clean=this._clean(sentence); if(!clean) return null;
+        return state.activeTtsProvider==='deepgram' ? this._deepgram(clean) : this._elevenLabs(clean);
+    },
+    async _deepgram(text) {
+        const key=DOM.deepgramKey.value.trim(); if(!key) return null;
+        const model=DOM.deepgramVoice.value;
+        const res=await fetch(`https://api.deepgram.com/v1/speak?model=${model}&encoding=mp3`,{method:'POST',headers:{'Authorization':`Token ${key}`,'Content-Type':'application/json'},body:JSON.stringify({text})});
+        if(!res.ok){ if(res.status===429) throw new Error('Rate limit — wait a moment'); throw new Error(`TTS ${res.status}`); }
+        return res.blob();
+    },
+    async _elevenLabs(text) {
+        const key=DOM.elevenLabsKey.value.trim(); if(!key) return null;
+        const voiceId=DOM.elevenLabsVoice.value; const modelId=DOM.ttsModel.value;
+        const stability=DOM.stability.value/100; const similarity=DOM.similarity.value/100;
+        const res=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?optimize_streaming_latency=3&output_format=mp3_22050_32`,{method:'POST',headers:{'Accept':'audio/mpeg','Content-Type':'application/json','xi-api-key':key},body:JSON.stringify({text,model_id:modelId,voice_settings:{stability,similarity_boost:similarity}})});
+        if(!res.ok){ if(res.status===429) throw new Error('Rate limit — wait a moment'); const e=await res.json().catch(()=>null); throw new Error(e?.detail?.message||`TTS ${res.status}`); }
+        return res.blob();
+    },
+    async synthesizeWithRetry(sentence, retries=CONFIG.TTS_MAX_RETRIES) {
+        for(let a=0;a<=retries;a++){
+            try { return await this.synthesize(sentence); }
+            catch(e){ if(a<retries && e.message.includes('Rate limit')){ await Utils.sleep(CONFIG.TTS_RETRY_DELAY_MS*(a+1)); continue; } throw e; }
+        }
+    },
+};
+
+/* ── 26. SSE READER ── */
+const SSEReader = {
+    async *read(body, extractText, checkSafety) {
+        const reader=body.getReader(); const decoder=new TextDecoder(); let buffer='';
+        while(true){
+            const { done, value }=await reader.read(); if(done) break;
+            buffer+=decoder.decode(value,{stream:true});
+            const lines=buffer.split('\n'); buffer=lines.pop()||'';
+            for(const line of lines){
+                if(!line.startsWith('data: ')) continue;
+                const json=line.slice(6).trim(); if(!json||json==='[DONE]') continue;
+                try { const chunk=JSON.parse(json); if(checkSafety) checkSafety(chunk); const text=extractText(chunk); if(text) yield text; }
+                catch(e){ if(e.message.includes('Blocked')||e.message.includes('safety')) throw e; }
+            }
+        }
+    },
+};
+
+/* ── 27. LLM PROVIDERS (neutral message model) ── */
+const LLMProvider = {
+    _params() { return { persona:DOM.personaPrompt.value.trim(), temperature:parseFloat(DOM.temperature.value)/100, maxTokens:parseInt(DOM.maxTokens.value,10) }; },
+
+    async *streamGroq(history, signal) {
+        const key=DOM.groqKey.value.trim(); if(!key) throw new Error('Enter Groq API key');
+        const { persona, temperature, maxTokens }=this._params();
+        const messages=[];
+        if(persona) messages.push({ role:'system', content: persona+CONFIG.PERSONA_SUFFIX });
+        for(const m of history) messages.push({ role: m.role, content: m.content }); // already user|assistant
+        const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:DOM.groqModel.value,messages,temperature,max_tokens:maxTokens,stream:true}),signal});
+        if(!res.ok){ const e=await res.json().catch(()=>null); throw new Error(e?.error?.message||`Groq ${res.status}`); }
+        yield* SSEReader.read(res.body, chunk=>chunk?.choices?.[0]?.delta?.content||null);
+    },
+
+    async *streamGemini(history, signal) {
+        const key=DOM.geminiKey.value.trim(); if(!key) throw new Error('Enter Gemini API key');
+        const { persona, temperature, maxTokens }=this._params();
+        const contents=history.map(m=>({ role: m.role==='assistant'?'model':'user', parts:[{ text:m.content }] }));
+        const reqBody={ contents, generationConfig:{ temperature, maxOutputTokens:maxTokens } };
+        if(persona) reqBody.systemInstruction={ parts:[{ text: persona+CONFIG.PERSONA_SUFFIX }] };
+        const model=DOM.geminiModel.value;
+        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(reqBody),signal});
+        if(!res.ok){ const e=await res.json().catch(()=>null); throw new Error(e?.error?.message||`Gemini ${res.status}`); }
+        yield* SSEReader.read(res.body,
+            chunk=>chunk?.candidates?.[0]?.content?.parts?.[0]?.text||null,
+            chunk=>{ if(chunk?.candidates?.[0]?.finishReason==='SAFETY') throw new Error('Blocked by safety filters.'); });
+    },
+
+    stream(history, signal) { return state.activeProvider==='groq' ? this.streamGroq(history,signal) : this.streamGemini(history,signal); },
+};
+
+/* ── 28. PIPELINE (runs one assistant turn) ── */
+const Pipeline = {
+    async run() {
+        const key = state.activeProvider==='groq' ? DOM.groqKey.value.trim() : DOM.geminiKey.value.trim();
+        if(!key){ const m=`Enter your ${state.activeProvider} API key.`; ChatUI.addMessage('assistant', m); Sessions.addMessage('assistant', m); TurnState.set(state.live?'listening':'idle'); return; }
+
+        DOM.sendBtn.disabled=true;
+        AudioQueue.reset();
+        const epoch = AudioQueue.epoch();          // this run owns this audio epoch
+        DOM.latencyBar.classList.remove('show');
+        TurnState.set('thinking');
+        const stream_ui = ChatUI.createStreamMsg(); // { msg, bubble } — run-local
+        const assistantMsg = Sessions.addMessage('assistant', ''); // run-local placeholder
+
+        const T0=performance.now();
+        const metrics={ ttft:null, firstSentenceReady:null, firstTtsDuration:null, audioDecode:null, ttfv:null, streamDone:null, total:null, sentences:[] };
+        let fullText=''; let sentenceBuffer=''; let sentenceIndex=0; let ttsPromises=[]; let firstSentenceFired=false;
+
+        const dispatchTts=(text)=>{
+            const idx=sentenceIndex++;
+            if(!firstSentenceFired){ metrics.firstSentenceReady=Math.round(performance.now()-T0); firstSentenceFired=true; }
+            const sentenceMetric={ text, tts:null }; metrics.sentences.push(sentenceMetric);
+            const ttsStart=performance.now(); const isFirst=idx===0; const slotIdx=AudioQueue.reserve();
+            const promise=TtsService.synthesizeWithRetry(text).then(blob=>{
+                if(!blob){ AudioQueue.skip(slotIdx, epoch); return; }
+                sentenceMetric.tts=Math.round(performance.now()-ttsStart);
+                if(isFirst) metrics.firstTtsDuration=sentenceMetric.tts;
+                const decodeStart=performance.now();
+                AudioQueue.fill(slotIdx, epoch, blob, ()=>{ if(metrics.ttfv===null){ metrics.audioDecode=Math.round(performance.now()-decodeStart); metrics.ttfv=Math.round(performance.now()-T0); LatencyBar.update(metrics); } });
+            }).catch(e=>{
+                // BUG FIX: one failed sentence only skips its own slot — the rest keep playing.
+                AudioQueue.skip(slotIdx, epoch);
+                Toast.show(`Voice (skipped 1): ${e.message}`,'error');
+            });
+            ttsPromises.push(promise);
+        };
+
+        const ac=new AbortController(); state.abortController=ac;
+        try {
+            const history=Sessions.historyForModel();
+            const stream=LLMProvider.stream(history, ac.signal);
+
+            for await (const chunk of stream) {
+                if(metrics.ttft===null) metrics.ttft=Math.round(performance.now()-T0);
+                fullText+=chunk; sentenceBuffer+=chunk;
+                ChatUI.updateStreamBubble(stream_ui.bubble, fullText);
+                const { sentences, remainder }=SentenceSplitter.extract(sentenceBuffer, sentenceIndex===0);
+                sentenceBuffer=remainder;
+                for(const s of sentences) dispatchTts(s);
+            }
+
+            metrics.streamDone=Math.round(performance.now()-T0);
+            if(sentenceBuffer.trim().length>CONFIG.MIN_SENTENCE_LEN) dispatchTts(sentenceBuffer.trim());
+
+            Sessions.updateMessage(assistantMsg, fullText, false);
+            await Promise.allSettled(ttsPromises);
+            metrics.total=Math.round(performance.now()-T0);
+            LatencyBar.update(metrics);
+            ChatUI.finalizeStreamMsg(stream_ui.msg, metrics, false);
+            if(!state.interrupted) TurnState.set(state.live?'listening':'idle');
+
+        } catch(e) {
+            if(e.name==='AbortError'){
+                // Interrupted by the user (barge-in) or cleared. Keep whatever was said so far.
+                Sessions.updateMessage(assistantMsg, fullText, true);
+                ChatUI.finalizeStreamMsg(stream_ui.msg, null, true);
+                // Turn state is owned by Conversation in this case.
+            } else {
+                metrics.total=Math.round(performance.now()-T0);
+                if(!fullText) ChatUI.updateStreamBubble(stream_ui.bubble, 'Error: '+e.message);
+                Sessions.updateMessage(assistantMsg, fullText || ('Error: '+e.message), false);
+                ChatUI.finalizeStreamMsg(stream_ui.msg, metrics, false);
+                Toast.show(e.message,'error');
+                if(!state.interrupted) TurnState.set(state.live?'listening':'idle');
+            }
+        } finally {
+            DOM.sendBtn.disabled=false;
+            if(state.abortController===ac) state.abortController=null; // only clear if still ours
+            Sessions.renderList();
+        }
+    },
+    abort() { if(state.abortController){ try{ state.abortController.abort(); }catch{} } },
+};
+
+/* ── 28b. GREETING (the brain opens the conversation) ──
+   Lets the AI speak first instead of only reacting. Fires once, only on a
+   brand-new (empty) conversation, when the user starts it (mic on or + New).
+   • "generate" → the opening line is produced in-character by the LLM, seeded
+                  by a hidden instruction that never shows in the transcript but
+                  stays in context for the rest of the chat.
+   • "exact"    → the written line is spoken verbatim, no LLM call.
+   (Not fired on cold page load: browsers block audio before a user gesture.) */
+const Greeting = {
+    _enabled() { return DOM.greetEnabled.checked; },
+    _mode()    { return DOM.greetMode.value; },
+    _text()    { return DOM.greetingPrompt.value.trim(); },
+    _hasLlmKey() { return (state.activeProvider==='groq' ? DOM.groqKey.value : DOM.geminiKey.value).trim().length > 0; },
+    _hasTtsKey() { return (state.activeTtsProvider==='deepgram' ? DOM.deepgramKey.value : DOM.elevenLabsKey.value).trim().length > 0; },
+
+    /** Only greet a fresh, empty conversation that the user just started. */
+    _shouldGreet() {
+        const s = Sessions.current();
+        return this._enabled() && !!s && s.messages.length===0 && !!this._text();
+    },
+
+    syncHint() {
+        if(!DOM.greetHint) return;
+        DOM.greetHint.textContent = this._mode()==='exact'
+            ? 'The exact words the AI will speak to open the conversation.'
+            : 'An instruction the AI follows to open the conversation, in character.';
+    },
+
+    init() {
+        DOM.greetMode.addEventListener('change', () => { this.syncHint(); Sessions._saveCurrentSettings(); Sessions.persist(); });
+        DOM.greetEnabled.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); });
+        DOM.greetingPrompt.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); });
+        this.syncHint();
+    },
+
+    /** Fire the opening turn if appropriate. Safe to call on mic-start / new session. */
+    async maybeGreet() {
+        if(!this._shouldGreet()) return;
+        if(TurnState.is('thinking','speaking')) return;          // never start over a live turn
+        const text = this._text();
+        if(this._mode()==='exact') {
+            if(!this._hasTtsKey()) return;                       // silent skip on a fresh session
+            return this._speakExact(text);
+        }
+        if(!this._hasLlmKey()) return;                           // silent skip on a fresh session
+        // Hidden instruction → in-character greeting, kept in context but never shown.
+        Sessions.addMessage('user', text, { hidden:true });
+        await Pipeline.run();
+    },
+
+    /** Exact mode: speak the written line verbatim through the ordered queue. */
+    async _speakExact(text) {
+        ChatUI.addMessage('assistant', text);
+        Sessions.addMessage('assistant', text);
+        AudioQueue.reset();
+        const epoch = AudioQueue.epoch();
+        TurnState.set('speaking');
+        const slotIdx = AudioQueue.reserve();
+        let blob = null;
+        try { blob = await TtsService.synthesizeWithRetry(text); }
+        catch(e) { Toast.show(`Voice: ${e.message}`,'error'); }
+        if(blob) {
+            AudioQueue.fill(slotIdx, epoch, blob, null);         // queue plays, then hands off turn
+        } else {
+            AudioQueue.skip(slotIdx, epoch);
+            if(!state.interrupted) TurnState.set(state.live ? 'listening' : 'idle');
+        }
+    },
+};
+
+/* ── 29. CONVERSATION CONTROLLER (the brain's turn-taking) ── */
+const Conversation = {
+    /** Submit a user utterance (typed or spoken) and get a spoken reply. */
+    submit(text) {
+        const t=(text||'').trim(); if(!t) return;
+        if(TurnState.is('thinking','speaking')) this._interrupt(); // safety: never overlap turns
+        state.interrupted=false;
+        Interim.clear();
+        ChatUI.addMessage('user', t);
+        Sessions.addMessage('user', t);
+        Pipeline.run();
+    },
+
+    /** The user started talking while the AI was thinking/speaking → stop and listen. */
+    _interrupt() {
+        if(state.interrupted) return;
+        state.interrupted=true;
+        Pipeline.abort();
+        AudioQueue.hardStop();
+        if(state.micAnalyser) state.analyserNode=state.micAnalyser;
+        TurnState.set('listening');
+        Visualizer.start();
+    },
+
+    _bargeChars() { return CONFIG.BARGEIN_CHARS[DOM.interruptSensitivity.value] || 5; },
+
+    _handlers() {
+        return {
+            onOpen: () => { state.live=true; if(!TurnState.is('speaking','thinking')) { TurnState.set('listening'); } if(state.micAnalyser) state.analyserNode=state.micAnalyser; Visualizer.start(); Greeting.maybeGreet(); },
+            onInterim: (text) => {
+                Interim.show(text);
+                // BARGE-IN: if the AI is talking/thinking and the user clearly started, cut in.
+                if(TurnState.is('thinking','speaking') && text.replace(/\s/g,'').length >= this._bargeChars()) {
+                    this._interrupt();
+                }
+            },
+            onFinal: (text) => {
+                // If we're mid-turn and somehow not yet interrupted, do it now.
+                if(TurnState.is('thinking','speaking')) this._interrupt();
+                this.submit(text);
+            },
+            onError: (msg) => this._onSttError(msg),
+        };
+    },
+
+    _sttImpl() { return state.activeSttProvider==='deepgram' ? DeepgramStt : BrowserStt; },
+
+    async startLive() {
+        if(state.live) return;
+        const llmKey = state.activeProvider==='groq' ? DOM.groqKey.value.trim() : DOM.geminiKey.value.trim();
+        if(!llmKey){ Toast.show(`Enter your ${state.activeProvider} key first`,'error'); return; }
+
+        // Mic with echo cancellation so the AI's own voice doesn't trigger barge-in.
+        try {
+            state.micStream=await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+        } catch(e){ Toast.show('Microphone access denied','error'); return; }
+
+        AudioCtx.ensure();
+        try {
+            const src=state.audioContext.createMediaStreamSource(state.micStream);
+            state.micAnalyser=state.audioContext.createAnalyser(); state.micAnalyser.fftSize=128; src.connect(state.micAnalyser);
+            state.analyserNode=state.micAnalyser;
+        } catch(e) {}
+
+        const lang=DOM.speechLang.value;
+        const provider=state.activeSttProvider;
+        if(provider==='deepgram' && !DOM.deepgramKey.value.trim()){
+            Toast.show('No Deepgram key — using browser speech','info');
+            this._startStt(BrowserStt, lang, '');
+            return;
+        }
+        const key = provider==='deepgram' ? DOM.deepgramKey.value.trim() : '';
+        this._startStt(this._sttImpl(), lang, key);
+    },
+
+    _startStt(impl, lang, key) {
+        state.stt=impl;
+        this._fellBack=false;
+        impl.start(state.micStream, lang, key, this._handlers());
+        DOM.micBtn.classList.add('active');
+        DOM.inputHint.textContent='Listening — just talk · 🎤 to stop';
+    },
+
+    /** If Deepgram fails, transparently fall back to browser STT (never worse than before). */
+    _onSttError(msg) {
+        if(state.stt===DeepgramStt && !this._fellBack && state.live){
+            this._fellBack=true;
+            Toast.show('Deepgram unavailable — switched to browser speech','info');
+            try { DeepgramStt.stop(); } catch {}
+            const lang=DOM.speechLang.value;
+            BrowserStt.start(state.micStream, lang, '', this._handlers());
+            state.stt=BrowserStt;
+            return;
+        }
+        Toast.show(msg,'error');
+        this.stopLive();
+    },
+
+    stopLive() {
+        if(state.stt){ try{ state.stt.stop(); }catch{} state.stt=null; }
+        if(state.micStream){ state.micStream.getTracks().forEach(t=>t.stop()); state.micStream=null; }
+        state.micAnalyser=null;
+        state.live=false;
+        DOM.micBtn.classList.remove('active');
+        DOM.inputHint.textContent='Enter to send · 🎤 start talking';
+        Interim.clear();
+        if(TurnState.is('listening')) { TurnState.set('idle'); Visualizer.stop(); }
+    },
+
+    toggle() { state.live ? this.stopLive() : this.startLive(); },
+};
+
+/* ── 30. TEXT INPUT ── */
+const ChatInput = {
+    init() {
+        DOM.sendBtn.addEventListener('click', () => { const t=DOM.messageInput.value.trim(); if(t){ DOM.messageInput.value=''; Conversation.submit(t); } });
+        DOM.messageInput.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=DOM.messageInput.value.trim(); if(t){ DOM.messageInput.value=''; Conversation.submit(t); } } });
+        DOM.micBtn.addEventListener('click', () => Conversation.toggle());
+        DOM.speechLang.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); });
+    },
+};
+
+/* ── 31. CLEAR / SESSIONS / MOBILE ── */
+const Actions = {
+    init() {
+        DOM.clearBtn.addEventListener('click', () => {
+            Pipeline.abort();
+            AudioQueue.hardStop();
+            const s=Sessions.current();
+            if(s){ s.messages=[]; s.title='New conversation'; s.updatedAt=Date.now(); Sessions.persist(); Sessions.renderList(); }
+            ChatUI.repaint([]);
+            DOM.latencyBar.classList.remove('show');
+            state.interrupted=false;
+            if(!state.live){ TurnState.set('idle'); } else { TurnState.set('listening'); }
+            DOM.sendBtn.disabled=false;
+            Toast.show('Cleared','info');
+        });
+        DOM.newSessionBtn.addEventListener('click', () => Sessions.newSession());
+        $('mobileToggle')?.addEventListener('click', () => $('sidebar').classList.toggle('collapsed'));
+    },
+};
+
+/* ── 32. BOOTSTRAP ── */
+function init() {
+    [DOM.groqKey, DOM.geminiKey, DOM.elevenLabsKey, DOM.deepgramKey].forEach(input => input.addEventListener('change', () => Storage.saveKeys()));
+    [DOM.groqModel, DOM.geminiModel, DOM.ttsModel].forEach(sel => sel.addEventListener('change', () => { Sessions._saveCurrentSettings(); Sessions.persist(); }));
+
+    ProviderToggle.init();
+    VoiceTagUpdater.init();
+    Sliders.init();
+    PresetChips.init();
+    Greeting.init();
+    ApiTester.init();
+    AudioCtx.init();
+    Visualizer.init();
+    ChatInput.init();
+    Actions.init();
+
+    Storage.loadKeys();
+    Sessions.load();
+    const cur=Sessions.current();
+    Settings.apply(cur.settings);
+    ChatUI.repaint(cur.messages);
+    Sessions.renderList();
+    TurnState.set('idle');
+}
+
+init();
+
+})();
+</script>
+</body>
+</html>
