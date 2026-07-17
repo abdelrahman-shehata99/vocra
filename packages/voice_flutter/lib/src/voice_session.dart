@@ -143,6 +143,12 @@ class VoiceSession {
 
   Future<void> sendText(String text) => _engine.sendText(text);
 
+  /// Speaks [text] in the assistant's voice without an LLM call — for
+  /// notifications, tutorial prompts, or scripted interjections. The text is
+  /// recorded on [transcripts] and in history like any reply; a call while a
+  /// turn is already in flight is dropped.
+  Future<void> speak(String text) => _engine.speak(text);
+
   Future<void> dispose() async {
     await stop();
     await _engineErrorsSub.cancel();
