@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # Pin to the repo's toolchain floor; bump alongside the pubspec
+          # `environment:` constraints, not on Flutter's release day.
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+      - run: dart pub get
+      - run: dart run melos run format
+      - run: dart run melos run analyze
+      - run: dart run melos run test
+
+  publish-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+      - run: dart pub get
+      # Workspace resolution lets both dry-runs pass before vocra_core is live
+      # on pub.dev.
+      - run: dart pub publish --dry-run
+        working-directory: packages/vocra_core
+      - run: flutter pub publish --dry-run
+        working-directory: packages/vocra_flutter

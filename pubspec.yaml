@@ -17,15 +17,15 @@ melos:
 
   scripts:
     analyze:
-      run: melos exec -- "dart analyze ."
+      run: dart run melos exec -- "dart analyze ."
       description: Analyze all packages.
 
     format:
-      run: melos exec -- "dart format --set-exit-if-changed ."
+      run: dart run melos exec -- "dart format --set-exit-if-changed ."
       description: Check formatting in all packages.
 
     test:
       run: |
-        melos exec --dir-exists=test --no-flutter -- "dart test" && \
-        melos exec --dir-exists=test --flutter -- "flutter test"
+        dart run melos exec --dir-exists=test --no-flutter -- "dart test" && \
+        dart run melos exec --dir-exists=test --flutter -- "flutter test"
       description: Run unit tests (vocra_core) and widget tests (Flutter packages).
