@@ -1,44 +1,41 @@
-# voice_flutter
+# vocra_flutter
 
-The Flutter platform layer of the [Voice AI SDK](../../README.md):
-microphone capture, ordered audio playback, permissions, audio-session
-setup, and `VoiceSession` — the single class apps use to get a spoken AI
-conversation with on-device orchestration, no backend required.
+[![pub package](https://img.shields.io/pub/v/vocra_flutter.svg)](https://pub.dev/packages/vocra_flutter)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE)
 
-Built on [`voice_core`](../voice_core) (the pure-Dart engine), Groq for the
-LLM, and Deepgram for STT + TTS. **Half-duplex is the default and
-recommended mode**: the mic is suspended while the AI is speaking, so it
-can't hear itself — no native code required, and it's what's been verified
-end-to-end on both platforms.
+The Flutter platform layer of **Vocra** — embed a spoken AI conversation
+(user speaks → speech-to-text → LLM → spoken reply) in any Android/iOS app,
+with **all orchestration on-device**: no server, no recurring backend cost.
+Each app supplies its own provider API keys.
 
-An **optional full-duplex mode** (`DuplexMode.fullDuplex`) is also
-implemented: the mic stays open and barge-in is detected via STT, backed
-by a native echo-cancellation module (`AVAudioEngine` voice processing on
-iOS, `AudioRecord` + `AcousticEchoCanceler` on Android). That native code
-compiles cleanly on both platforms but its actual echo-cancellation
-quality hasn't been validated on a physical device — see
-[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#full-duplex--native-aec-spec-9-t18--optional)
-before relying on it. Check `NativeAecMicSource.isAvailable()` before
-using it; `VoiceSession` will refuse to start (with a `ConfigError`,
-not a crash) if you request full-duplex without it.
+This package adds microphone capture, ordered audio playback, permissions, and
+audio-session handling on top of the pure-Dart
+[`vocra_core`](https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_core)
+engine (which it re-exports, so one import is enough). `VoiceSession` is the
+single class most apps touch.
+
+- **Providers:** Groq or Gemini for the LLM; Deepgram or ElevenLabs for TTS;
+  Deepgram for STT. All pluggable — pass the provider instance you want.
+- **AI speaks first:** an optional `greeting` opens the conversation with a
+  fixed line or an LLM-generated one.
+- **Human feel:** optional `naturalSpeech` mode nudges the model toward brief,
+  spoken-style replies with natural interjections and (on ElevenLabs `eleven_v3`)
+  audio tags like `[laughs]`; markdown and emojis are stripped before TTS.
+- **Half-duplex by default:** the mic is suspended while the AI speaks, so it
+  never hears itself — no native code required. An optional
+  [full-duplex mode](https://github.com/abdelrahman-shehata99/vocra/blob/main/docs/ARCHITECTURE.md)
+  with native echo cancellation is available but not device-validated.
 
 ## Requirements
 
-- Flutter `>=3.44.0`, Dart SDK `^3.12.0`
-- Android and iOS only for v1 (web is out of scope)
+- Flutter `>=3.44.0`, Dart `^3.12.0`
+- Android and iOS only (web/desktop are out of scope)
 
 ## Install
 
-```yaml
-dependencies:
-  voice_flutter:
-    git:
-      url: <this repo>
-      path: packages/voice_flutter
+```sh
+flutter pub add vocra_flutter
 ```
-
-(Not yet published to pub.dev — see [the root README](../../README.md) for
-the monorepo layout.)
 
 ## Platform setup
 
@@ -61,49 +58,56 @@ the monorepo layout.)
 <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 ```
 
-Both plugins (`permission_handler`, `record`) pick these up automatically —
-no Podfile macros or Gradle changes needed for v1.
+The bundled plugins (`permission_handler`, `record`) pick these up
+automatically — no Podfile macros or Gradle changes needed.
 
 ## Quickstart
 
 ```dart
+import 'package:vocra_flutter/vocra_flutter.dart';
+
 final session = VoiceSession(
   config: VoiceConfig(
     llm: GroqLlm(apiKey: groqKey),
-    tts: DeepgramTts(apiKey: deepgramKey),
     stt: DeepgramStt(apiKey: deepgramKey),
-    systemPrompt: 'You are a helpful assistant.',
+    tts: DeepgramTts(apiKey: deepgramKey),
+    systemPrompt: 'You are a helpful voice assistant.',
+    greeting: const Greeting.text('Hey! What can I help you with?'),
+    naturalSpeech: true,
   ),
 );
 
+session.turnState.listen(updateUi);   // idle / listening / thinking / speaking
+session.transcripts.listen(showBubble);
+session.errors.listen(showError);
+
 await session.requestPermissions();
-session.turnState.listen(updateUi);
 await session.start();
 ```
 
-That's the whole integration surface: provide your own Groq + Deepgram API
-keys, listen to `turnState` / `transcripts` / `metrics` / `errors` to drive
-your UI, and call `session.stop()` / `session.dispose()` when done.
-`session.sendText('...')` lets you skip the mic entirely for typed input.
+That's the whole integration surface. Supply your own provider API keys, listen
+to `turnState` / `transcripts` / `metrics` / `errors` to drive your UI, and call
+`session.stop()` / `session.dispose()` when done. `session.sendText('...')`
+handles typed input (no mic), and `session.speak('...')` speaks a scripted line
+in the assistant's voice.
 
 ## Example app
 
-`example/` is a runnable demo: a key-entry screen (with a "Test keys"
-button that does one cheap call against each provider) and a conversation
-screen (mic toggle, live transcript, turn-state indicator, latency
-readout). Run it from `packages/voice_flutter/example`:
-
-```sh
-flutter run
-```
+[`example/`](https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter/example)
+is a runnable demo: a key-entry screen and a conversation screen (mic toggle,
+live transcript, turn-state indicator, latency readout). From
+`packages/vocra_flutter/example`, run `flutter run`.
 
 ## Errors, interruptions, and routing
 
-- Every failure (auth, rate limit, network, provider error) surfaces as a
-  typed `VoiceError` on `session.errors` — including connection drops
-  mid-stream — never a raw exception.
-- Phone-call interruptions and headphone/AirPods disconnects
-  (`audio_session`) automatically interrupt the current turn and return to
-  listening rather than continuing to talk over them.
-- `start()` / `stop()` are safe to call rapidly/concurrently (e.g. a
-  double-tapped mic button) — re-entrant calls are guarded and a no-op.
+- Every failure (auth, rate limit, network, provider) surfaces as a typed
+  `VoiceError` on `session.errors` — including mid-stream connection drops —
+  never a raw exception.
+- Phone-call interruptions and headphone/AirPods disconnects automatically
+  interrupt the current turn and return to listening.
+- `start()` / `stop()` are safe to call rapidly or concurrently (e.g. a
+  double-tapped mic button); re-entrant calls are guarded.
+
+## License
+
+MIT — see [LICENSE](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE).

@@ -1,46 +1,44 @@
-# Voice AI SDK
+# Vocra
 
-A reusable Voice AI SDK for Flutter: embed a spoken AI conversation in any
-Android/iOS app — user speaks → STT → LLM → spoken reply — with **all
-orchestration running on-device**. No server, no recurring backend cost;
-each app supplies its own provider API keys.
+[![vocra_flutter](https://img.shields.io/pub/v/vocra_flutter.svg?label=vocra_flutter)](https://pub.dev/packages/vocra_flutter)
+[![vocra_core](https://img.shields.io/pub/v/vocra_core.svg?label=vocra_core)](https://pub.dev/packages/vocra_core)
+[![CI](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- **LLM:** [Groq](https://groq.com) (OpenAI-compatible streaming chat completions)
-- **STT + TTS:** [Deepgram](https://deepgram.com) (streaming WebSocket STT, REST TTS)
-- **Duplex mode:** half-duplex by default — the mic is suspended while the
-  AI speaks, so it can't interrupt itself. Full-duplex barge-in is an
-  optional, later addition gated behind native echo cancellation.
+A voice AI SDK for Flutter: embed a spoken AI conversation in any Android/iOS
+app — user speaks → STT → LLM → spoken reply — with **all orchestration running
+on-device**. No server, no recurring backend cost; each app supplies its own
+provider API keys.
+
+- **LLM:** [Groq](https://groq.com) or [Gemini](https://ai.google.dev) (streaming)
+- **STT:** [Deepgram](https://deepgram.com) (streaming WebSocket)
+- **TTS:** [Deepgram](https://deepgram.com) or [ElevenLabs](https://elevenlabs.io)
+- **AI speaks first:** optional fixed or LLM-generated greeting
+- **Human feel:** optional natural-speech mode with markdown/emoji stripping and
+  (on ElevenLabs `eleven_v3`) audio tags like `[laughs]`
+- **Half-duplex by default** (mic suspended while the AI speaks); optional
+  full-duplex barge-in behind native echo cancellation
 
 Providers are pluggable behind interfaces (`LlmProvider`, `TtsProvider`,
-`SttTransport`), so Gemini, ElevenLabs, or others can be added later
-without touching the engine.
+`SttTransport`), so new ones can be added without touching the engine.
 
-## Packages
+## Install
 
-This is a [melos](https://melos.invertase.dev) monorepo using Dart's native
-[pub workspaces](https://dart.dev/tools/pub/workspaces):
-
+```sh
+flutter pub add vocra_flutter
 ```
-packages/
-  voice_core/      pure-Dart engine, provider adapters, transport — no Flutter import
-  voice_flutter/   Flutter plugin layer: mic, audio playback, permissions, VoiceSession
-    example/       runnable demo app + manual test harness
-```
-
-See [`packages/voice_core/README.md`](packages/voice_core/README.md) and
-[`packages/voice_flutter/README.md`](packages/voice_flutter/README.md) for
-package-specific docs, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-for how the engine's streaming/ordering/half-duplex pieces fit together.
-
-## Quickstart
 
 ```dart
+import 'package:vocra_flutter/vocra_flutter.dart';
+
 final session = VoiceSession(
   config: VoiceConfig(
     llm: GroqLlm(apiKey: groqKey),
-    tts: DeepgramTts(apiKey: deepgramKey),
     stt: DeepgramStt(apiKey: deepgramKey),
-    systemPrompt: 'You are a helpful assistant.',
+    tts: DeepgramTts(apiKey: deepgramKey),
+    systemPrompt: 'You are a helpful voice assistant.',
+    greeting: const Greeting.text('Hey! What can I help you with?'),
+    naturalSpeech: true,
   ),
 );
 
@@ -49,38 +47,54 @@ session.turnState.listen(updateUi);
 await session.start();
 ```
 
+See the [`vocra_flutter` README](packages/vocra_flutter/README.md) for platform
+setup (mic permissions) and the full API.
+
+## Packages
+
+A [melos](https://melos.invertase.dev) monorepo using Dart's native
+[pub workspaces](https://dart.dev/tools/pub/workspaces):
+
+```
+packages/
+  vocra_core/      pure-Dart engine, provider adapters, transport — no Flutter import
+  vocra_flutter/   Flutter plugin layer: mic, audio playback, permissions, VoiceSession
+    example/       runnable demo app
+```
+
+- [`vocra_core`](packages/vocra_core/README.md) — the engine (usable without Flutter)
+- [`vocra_flutter`](packages/vocra_flutter/README.md) — the app-facing Flutter layer
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design rationale for the
+  non-obvious parts (turn-state, audio ordering, greeting, full-duplex AEC)
+
 ## Requirements
 
-- Flutter `>=3.44.0`, Dart SDK `^3.12.0`
-- Android and iOS (web is out of scope for v1)
-- melos `^8.0.0` for monorepo tooling (`dart pub global activate melos`)
+- Flutter `>=3.44.0`, Dart `^3.12.0`
+- Android and iOS (web/desktop are out of scope)
 
 ## Development
 
 ```sh
-dart pub get          # resolves the whole workspace
-melos bootstrap        # links local packages together
-melos run analyze      # dart analyze across all packages
-melos run format        # dart format --set-exit-if-changed across all packages
-melos run test          # dart test (voice_core) + flutter test (Flutter packages)
+dart pub get                 # resolve the whole workspace
+dart run melos bootstrap     # link local packages
+dart run melos run analyze   # dart analyze across all packages
+dart run melos run format    # check formatting across all packages
+dart run melos run test      # dart test (vocra_core) + flutter test (Flutter packages)
 ```
 
-## Status
+## Releasing
 
-All of `voice_core` (the engine, every provider adapter, and the
-orchestrator) is implemented and unit tested with zero device code. The
-Flutter platform layer (`voice_flutter`) and example app are implemented
-and verified to build and boot on both Android and iOS; the example app
-includes a "Test keys" flow so you can verify your own Groq/Deepgram keys
-before a full voice round-trip on a physical device.
+Both packages version in lockstep. Publish core first (pub.dev must have it
+before the Flutter package's dependency resolves for consumers):
 
-The optional full-duplex mode (native echo cancellation, §9) is also
-implemented — its Dart-side barge-in logic is unit tested, and its native
-Swift/Kotlin module compiles cleanly on both platforms, but actual
-echo-cancellation quality is unverified without a physical device. Default
-to half-duplex; see `docs/ARCHITECTURE.md` before turning on full-duplex.
+```sh
+dart run melos run analyze && dart run melos run test
+( cd packages/vocra_core    && dart pub publish )
+# wait until vocra_core is live on pub.dev, then:
+( cd packages/vocra_flutter && flutter pub publish )
+git tag v0.2.0 && git push origin main v0.2.0
+```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design notes,
-including a couple of places where the implementation goes slightly beyond
-the literal spec text (with rationale) to make the system actually work end
-to end.
+## License
+
+MIT — see [LICENSE](LICENSE).

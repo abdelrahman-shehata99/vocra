@@ -1,17 +1,19 @@
-# vocra
+# vocra_flutter example
 
-A new Flutter project.
+A runnable demo of [`vocra_flutter`](../): a key-entry screen (enter your Groq
+and Deepgram keys, with a "Test keys" check) and a conversation screen with a
+mic toggle, live transcript, turn-state indicator, and latency readout.
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+This example is a workspace member, so run it from a clone of the repo:
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+cd packages/vocra_flutter/example
+flutter run
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+You'll need a device or simulator and your own
+[Groq](https://console.groq.com) + [Deepgram](https://console.deepgram.com) API
+keys (entered on the first screen). Half-duplex is the default; full-duplex
+requires native echo cancellation on a physical device.
