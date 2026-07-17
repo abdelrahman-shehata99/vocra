@@ -28,13 +28,11 @@ import 'llm_provider.dart';
 /// `GroqLlm(model: ...)`. See console.groq.com/docs/reasoning.
 class GroqLlm implements LlmProvider {
   GroqLlm({
-    required String apiKey,
+    required this._apiKey,
     this.model = 'openai/gpt-oss-20b',
-    String baseUrl = 'https://api.groq.com/openai/v1',
+    this._baseUrl = 'https://api.groq.com/openai/v1',
     Dio? dio,
-  }) : _apiKey = apiKey,
-       _baseUrl = baseUrl,
-       _dio = dio ?? Dio();
+  }) : _dio = dio ?? Dio();
 
   final String _apiKey;
   final String model;

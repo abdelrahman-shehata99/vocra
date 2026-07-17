@@ -50,32 +50,21 @@ class FlutterMicSource implements MicSource {
 
   @override
   Future<void> start() async {
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource.start: hasPermission check...');
-    final has = await _recorder.hasPermission();
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource.start: hasPermission=$has');
+    await _recorder.hasPermission();
     await _startCapture();
   }
 
   Future<void> _startCapture() async {
     if (_capturing) return;
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource: startStream...');
     final stream = await _recorder.startStream(_config);
     _capturing = true;
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource: capturing');
     _captureSub = stream.listen(
       (frame) => _pcm16Controller.add(frame),
-      onError: (Object e) {
-        // ignore: avoid_print
-        print('[vocra] FlutterMicSource: capture stream error: $e');
-      },
-      onDone: () {
-        // ignore: avoid_print
-        print('[vocra] FlutterMicSource: capture stream DONE');
-      },
+      // Swallow capture-stream errors here rather than letting them escape as
+      // unhandled async errors. The engine's subscription to [pcm16] has no
+      // onError, so forwarding them would crash the zone; a dropped capture
+      // surfaces to the app as silence instead.
+      onError: (Object _) {},
     );
   }
 
@@ -91,16 +80,12 @@ class FlutterMicSource implements MicSource {
   /// capture so it never runs concurrently with TTS playback.
   @override
   Future<void> pause() async {
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource.pause: stopping capture (AI speaking)');
     await _stopCapture();
   }
 
   /// Called when the AI stops speaking. Starts a fresh recording.
   @override
   Future<void> resume() async {
-    // ignore: avoid_print
-    print('[vocra] FlutterMicSource.resume: restarting capture');
     await _startCapture();
   }
 

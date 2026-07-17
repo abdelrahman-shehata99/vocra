@@ -14,9 +14,7 @@ import '../io/audio_sink.dart';
 /// [drained] fires once every submitted clip up to that point has finished
 /// playing. The engine uses that to know when to resume the mic.
 class AudioQueue {
-  AudioQueue({required AudioSink sink, required String audioFormat})
-    : _sink = sink,
-      _audioFormat = audioFormat {
+  AudioQueue({required this._sink, required this._audioFormat}) {
     _clipFinishedSub = _sink.clipFinished.listen((_) => _onClipFinished());
   }
 
@@ -90,7 +88,7 @@ class AudioQueue {
       // queue: mark the slot skipped so the player loop advances past it to
       // the remaining clips rather than waiting on an index that will never
       // arrive. A stale-epoch failure is simply dropped.
-      onError: (Object _, StackTrace __) {
+      onError: (Object _, StackTrace _) {
         if (epoch != _epoch) return;
         _skipped.add(index);
         _tryPlayNext();

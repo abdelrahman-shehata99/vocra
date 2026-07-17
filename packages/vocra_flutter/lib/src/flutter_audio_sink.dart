@@ -28,7 +28,7 @@ class FlutterAudioSink implements AudioSink {
       // A clip that fails to load/decode surfaces as a stream error. Treat it
       // as finished so AudioQueue advances to the next sentence instead of
       // hanging forever on a clip that will never reach `completed`.
-      onError: (Object _, StackTrace __) => _reportClipDone(),
+      onError: (Object _, StackTrace _) => _reportClipDone(),
     );
     _playerStateSub = _player.playerStateStream.listen(_onPlayerState);
   }
@@ -62,8 +62,6 @@ class FlutterAudioSink implements AudioSink {
 
   @override
   Future<void> enqueue(int index, Uint8List bytes, String format) async {
-    // ignore: avoid_print
-    print('[vocra] AudioSink.enqueue(index=$index, ${bytes.length}B) -> play');
     final file = await _writeTempFile(bytes, format);
     // Set the guard before loading the source so the *next* `completed` we
     // see is unambiguously this clip finishing.

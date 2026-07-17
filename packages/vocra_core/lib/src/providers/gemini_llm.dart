@@ -29,13 +29,11 @@ import 'llm_provider.dart';
 ///   (mirrors the HTML reference's `historyForModel`).
 class GeminiLlm implements LlmProvider {
   GeminiLlm({
-    required String apiKey,
+    required this._apiKey,
     this.model = 'gemini-2.5-flash',
-    String baseUrl = 'https://generativelanguage.googleapis.com/v1beta',
+    this._baseUrl = 'https://generativelanguage.googleapis.com/v1beta',
     Dio? dio,
-  }) : _apiKey = apiKey,
-       _baseUrl = baseUrl,
-       _dio = dio ?? Dio();
+  }) : _dio = dio ?? Dio();
 
   final String _apiKey;
   final String model;

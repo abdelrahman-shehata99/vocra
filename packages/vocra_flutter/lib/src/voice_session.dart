@@ -64,8 +64,6 @@ class VoiceSession {
   /// calls — e.g. a double-tapped mic button — can't both slip past the
   /// `_started` guard and start the conversation twice concurrently.
   Future<void> start() async {
-    // ignore: avoid_print
-    print('[vocra] VoiceSession.start() called (duplex=${_config.duplex})');
     if (_started || _starting) return;
     _starting = true;
     try {
@@ -80,11 +78,7 @@ class VoiceSession {
         return;
       }
 
-      // ignore: avoid_print
-      print('[vocra] requesting mic permission...');
       final status = await _micPermission.request();
-      // ignore: avoid_print
-      print('[vocra] mic permission status = $status');
       if (status != MicPermissionStatus.granted) {
         _errorsController.add(
           const ConfigError('Microphone permission was not granted.'),
@@ -92,21 +86,13 @@ class VoiceSession {
         return;
       }
 
-      // ignore: avoid_print
-      print('[vocra] configuring audio session...');
       final audioSession = await AudioSessionSetup.configure();
       _audioSession = audioSession;
       _wireAudioSessionReactions(audioSession);
 
-      // ignore: avoid_print
-      print('[vocra] audio session ok; calling engine.startConversation()...');
       await _engine.startConversation();
       _started = true;
-      // ignore: avoid_print
-      print('[vocra] VoiceSession.start() COMPLETE, _started=true');
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('[vocra] VoiceSession.start() THREW: $e\n$st');
+    } catch (e) {
       _errorsController.add(
         e is VoiceError ? e : NetworkError('start() failed: $e'),
       );

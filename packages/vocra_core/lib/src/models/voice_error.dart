@@ -16,8 +16,8 @@ sealed class VoiceError implements Exception {
 /// The provider rejected the request because of a bad or missing API key.
 class AuthError extends VoiceError {
   const AuthError([
-    String message = 'Authentication failed: invalid or missing API key.',
-  ]) : super(message);
+    super.message = 'Authentication failed: invalid or missing API key.',
+  ]);
 }
 
 /// The provider responded with HTTP 429.
@@ -35,7 +35,7 @@ class RateLimitError extends VoiceError {
 /// socket, etc. — distinct from a [ProviderError], which means the provider
 /// was reached but returned an error.
 class NetworkError extends VoiceError {
-  const NetworkError([String message = 'Network error.']) : super(message);
+  const NetworkError([super.message = 'Network error.']);
 }
 
 /// The provider was reached but returned an error response.
@@ -56,5 +56,5 @@ class ProviderError extends VoiceError {
 /// The SDK was misconfigured (e.g. an empty system prompt, missing required
 /// provider) — caught before any network call is made.
 class ConfigError extends VoiceError {
-  const ConfigError(String message) : super(message);
+  const ConfigError(super.message);
 }

@@ -22,13 +22,11 @@ import 'tts_provider.dart';
 /// quality over latency can opt in by passing `model: 'aura-2-thalia-en'`.
 class DeepgramTts implements TtsProvider {
   DeepgramTts({
-    required String apiKey,
+    required this._apiKey,
     this.model = 'aura-asteria-en',
-    String baseUrl = 'https://api.deepgram.com/v1',
+    this._baseUrl = 'https://api.deepgram.com/v1',
     Dio? dio,
-  }) : _apiKey = apiKey,
-       _baseUrl = baseUrl,
-       _dio = dio ?? Dio();
+  }) : _dio = dio ?? Dio();
 
   final String _apiKey;
   final String model;

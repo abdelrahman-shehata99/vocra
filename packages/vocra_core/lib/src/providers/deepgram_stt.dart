@@ -39,19 +39,14 @@ WebSocketChannel _defaultChannelFactory(
 /// the engine actually needs to decide an utterance is complete.
 class DeepgramStt implements SttTransport {
   DeepgramStt({
-    required String apiKey,
+    required this._apiKey,
     this.model = 'nova-2',
-    String baseUrl = 'wss://api.deepgram.com/v1/listen',
-    WebSocketChannelFactory channelFactory = _defaultChannelFactory,
-    Duration keepAliveInterval = const Duration(seconds: 8),
-    Duration endpointing = const Duration(milliseconds: 300),
-    Duration utteranceEnd = const Duration(milliseconds: 1000),
-  }) : _apiKey = apiKey,
-       _baseUrl = baseUrl,
-       _channelFactory = channelFactory,
-       _keepAliveInterval = keepAliveInterval,
-       _endpointing = endpointing,
-       _utteranceEnd = utteranceEnd;
+    this._baseUrl = 'wss://api.deepgram.com/v1/listen',
+    this._channelFactory = _defaultChannelFactory,
+    this._keepAliveInterval = const Duration(seconds: 8),
+    this._endpointing = const Duration(milliseconds: 300),
+    this._utteranceEnd = const Duration(milliseconds: 1000),
+  });
 
   final String _apiKey;
   final String model;
@@ -126,7 +121,7 @@ class DeepgramStt implements SttTransport {
 
     _subscription = channel.stream.listen(
       _onMessage,
-      onError: (Object _, StackTrace __) {
+      onError: (Object _, StackTrace _) {
         // A transport-level WS error (dropped connection, etc). [transcripts]
         // is a Stream<TranscriptEvent>, but stream error events aren't
         // constrained by the data type, so we can surface a typed
@@ -178,11 +173,6 @@ class DeepgramStt implements SttTransport {
   }
 
   void _onMessage(dynamic message) {
-    // ignore: avoid_print
-    print(
-      '[vocra] DeepgramStt raw msg: '
-      '${message is String ? (message.length > 220 ? message.substring(0, 220) : message) : message.runtimeType}',
-    );
     if (message is! String) return; // Deepgram sends JSON text frames
 
     final Map<String, dynamic> json;
@@ -245,8 +235,6 @@ class DeepgramStt implements SttTransport {
     final full = _utteranceBuffer.trim();
     _utteranceBuffer = '';
     if (full.isNotEmpty) {
-      // ignore: avoid_print
-      print('[vocra] DeepgramStt: utterance FINAL -> "$full"');
       _emit(full, isFinal: true);
     }
   }

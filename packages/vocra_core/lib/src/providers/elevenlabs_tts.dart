@@ -26,18 +26,16 @@ import 'tts_provider.dart';
 /// `eleven_v3` is more expressive but higher-latency than the flash default.
 class ElevenLabsTts implements TtsProvider {
   ElevenLabsTts({
-    required String apiKey,
+    required this._apiKey,
     this.voiceId = 'EXAVITQu4vr4xnSDxMaL',
     this.modelId = 'eleven_flash_v2_5',
     this.stability = 0.5,
     this.similarityBoost = 0.75,
     this.style,
     this.useSpeakerBoost,
-    String baseUrl = 'https://api.elevenlabs.io/v1',
+    this._baseUrl = 'https://api.elevenlabs.io/v1',
     Dio? dio,
-  }) : _apiKey = apiKey,
-       _baseUrl = baseUrl,
-       _dio = dio ?? Dio();
+  }) : _dio = dio ?? Dio();
 
   final String _apiKey;
   final String voiceId;

@@ -21,18 +21,14 @@ import 'turn_machine.dart';
 /// The pure-Dart orchestrator that wires STT, the LLM, TTS, and ordered
 /// audio playback into one half-duplex conversation loop (spec §6.4).
 class VoiceEngine {
-  VoiceEngine(
-    this._config, {
-    required AudioSink audioSink,
-    required MicSource mic,
-  }) : _mic = mic,
-       _llm = _config.llm,
-       _tts = _config.tts,
-       _stt = _config.stt,
-       _audioQueue = AudioQueue(
-         sink: audioSink,
-         audioFormat: _config.tts.audioFormat,
-       ) {
+  VoiceEngine(this._config, {required AudioSink audioSink, required this._mic})
+    : _llm = _config.llm,
+      _tts = _config.tts,
+      _stt = _config.stt,
+      _audioQueue = AudioQueue(
+        sink: audioSink,
+        audioFormat: _config.tts.audioFormat,
+      ) {
     _history.add(
       ChatMessage(
         role: MessageRole.system,
