@@ -18,21 +18,18 @@ import 'llm_provider.dart';
 /// `max_completion_tokens` (not the older `max_tokens` alias) for the token
 /// limit.
 ///
-/// ⚠️ MODEL DEADLINE: the default [model] `llama-3.1-8b-instant` was
-/// deprecated by Groq on 2026-06-17 and is **retired on 2026-08-16** (free/
-/// developer tier). It works until then; after that it returns errors with
-/// no change on our side. Before that date, switch the default to Groq's
-/// recommended replacement `openai/gpt-oss-20b` — a reasoning model, so for
-/// voice latency also pass `reasoning_effort: 'low'` (and
-/// `include_reasoning: false`) so it doesn't "think" out loud before the
-/// first spoken word. Consumers can already pin any model per-app via
-/// `GroqLlm(model: ...)`. See console.groq.com/docs/deprecations.
+/// The default [model] is Groq's `openai/gpt-oss-20b`. The previous default
+/// `llama-3.1-8b-instant` was deprecated by Groq on 2026-06-17 and is
+/// **retired on 2026-08-16**, so it is no longer a safe default. `gpt-oss-20b`
+/// is a reasoning model; for voice latency this adapter automatically sends
+/// `reasoning_effort: 'low'` and `include_reasoning: false` for any
+/// `openai/gpt-oss*` model (see [_isGptOss]) so it doesn't "think" out loud
+/// before the first spoken word. Consumers can pin any model per-app via
+/// `GroqLlm(model: ...)`. See console.groq.com/docs/reasoning.
 class GroqLlm implements LlmProvider {
   GroqLlm({
     required String apiKey,
-    // See the ⚠️ MODEL DEADLINE note above: swap this to
-    // `openai/gpt-oss-20b` before 2026-08-16.
-    this.model = 'llama-3.1-8b-instant',
+    this.model = 'openai/gpt-oss-20b',
     String baseUrl = 'https://api.groq.com/openai/v1',
     Dio? dio,
   }) : _apiKey = apiKey,
@@ -45,6 +42,11 @@ class GroqLlm implements LlmProvider {
   final Dio _dio;
 
   static const _sseParser = SseParser();
+
+  /// Groq's `openai/gpt-oss*` models are reasoning models that accept the
+  /// `reasoning_effort` / `include_reasoning` parameters; other Groq models
+  /// (e.g. the Llama family) reject them.
+  bool get _isGptOss => model.startsWith('openai/gpt-oss');
 
   @override
   Stream<String> streamCompletion(
@@ -95,6 +97,15 @@ class GroqLlm implements LlmProvider {
     }
   }
 
+  @override
+  Future<void> warmUp() async {
+    // Any response (even 401/404) still completes the DNS+TCP+TLS handshake
+    // and parks the connection in Dio's keep-alive pool. Never throws.
+    try {
+      await _dio.head<void>('$_baseUrl/models');
+    } catch (_) {}
+  }
+
   Future<Response<ResponseBody>> _openStream(
     List<ChatMessage> history, {
     required double temperature,
@@ -111,6 +122,10 @@ class GroqLlm implements LlmProvider {
           'stream': true,
           'temperature': temperature,
           'max_completion_tokens': maxTokens,
+          // Reasoning models: keep the pre-token "thinking" minimal and out of
+          // the stream so the first spoken word arrives fast (see [_isGptOss]).
+          if (_isGptOss) 'reasoning_effort': 'low',
+          if (_isGptOss) 'include_reasoning': false,
         },
         options: Options(
           headers: {

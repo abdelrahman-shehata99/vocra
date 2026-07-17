@@ -47,6 +47,28 @@ void main() {
       await stt.dispose();
     });
 
+    test('endpointing and utterance_end_ms are configurable', () async {
+      late Uri capturedUri;
+      final fakeChannel = FakeWebSocketChannel();
+
+      final stt = DeepgramStt(
+        apiKey: 'key',
+        endpointing: const Duration(milliseconds: 150),
+        utteranceEnd: const Duration(milliseconds: 1500),
+        channelFactory: (uri, {required headers}) {
+          capturedUri = uri;
+          return fakeChannel;
+        },
+      );
+
+      await stt.start();
+
+      expect(capturedUri.queryParameters['endpointing'], '150');
+      expect(capturedUri.queryParameters['utterance_end_ms'], '1500');
+
+      await stt.dispose();
+    });
+
     test('sendAudio writes raw PCM16 bytes to the socket', () async {
       final fakeChannel = FakeWebSocketChannel();
       final stt = DeepgramStt(

@@ -123,6 +123,10 @@ class FakeLlmProvider implements LlmProvider {
   final List<List<ChatMessage>> historySnapshots = [];
   StreamController<String>? _controller;
   Cancellation? lastCancel;
+  int warmUpCalls = 0;
+
+  /// When set, [warmUp] throws it — to prove start() survives a bad provider.
+  Object? warmUpError;
 
   @override
   Stream<String> streamCompletion(
@@ -136,6 +140,12 @@ class FakeLlmProvider implements LlmProvider {
     final controller = StreamController<String>();
     _controller = controller;
     return controller.stream;
+  }
+
+  @override
+  Future<void> warmUp() async {
+    warmUpCalls++;
+    if (warmUpError != null) throw warmUpError!;
   }
 
   void pushToken(String token) => _controller?.add(token);
@@ -152,9 +162,18 @@ class FakeLlmProvider implements LlmProvider {
 class FakeTtsProvider implements TtsProvider {
   final List<String> synthesizedText = [];
   Future<Uint8List> Function(String text)? handler;
+  int warmUpCalls = 0;
 
   @override
   String get audioFormat => 'mp3';
+
+  @override
+  bool supportsAudioTags = false;
+
+  @override
+  Future<void> warmUp() async {
+    warmUpCalls++;
+  }
 
   @override
   Future<Uint8List> synthesize(String text, {required Cancellation cancel}) {

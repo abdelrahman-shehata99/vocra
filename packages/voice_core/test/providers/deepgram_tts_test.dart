@@ -17,6 +17,10 @@ void main() {
       expect(tts.audioFormat, 'mp3');
     });
 
+    test('supportsAudioTags is false: Aura has no tag support', () {
+      expect(DeepgramTts(apiKey: 'key').supportsAudioTags, isFalse);
+    });
+
     test('returns bytes from a successful response', () async {
       final adapter = FakeHttpClientAdapter(
         (options) async => bytesResponseBody([1, 2, 3, 4]),

@@ -45,7 +45,7 @@ void main() {
         expect(options.path, 'https://api.groq.com/openai/v1/chat/completions');
         expect(options.headers['Authorization'], 'Bearer secret-key');
         final body = options.data as Map<String, dynamic>;
-        expect(body['model'], 'llama-3.1-8b-instant');
+        expect(body['model'], 'openai/gpt-oss-20b');
         expect(body['stream'], isTrue);
         expect(body['max_completion_tokens'], 50);
         expect(body['temperature'], 0.5);
@@ -61,6 +61,64 @@ void main() {
             cancel: Cancellation(),
           )
           .toList();
+    });
+
+    test(
+      'sends reasoning_effort low and include_reasoning false for '
+      'openai/gpt-oss models',
+      () async {
+        final adapter = FakeHttpClientAdapter((options) async {
+          final body = options.data as Map<String, dynamic>;
+          expect(body['model'], 'openai/gpt-oss-20b');
+          expect(body['reasoning_effort'], 'low');
+          expect(body['include_reasoning'], false);
+          return sseResponseBody(['data: [DONE]\n\n']);
+        });
+        // Default model is openai/gpt-oss-20b.
+        final llm = GroqLlm(apiKey: 'key', dio: dioWith(adapter));
+
+        await llm
+            .streamCompletion(
+              const [ChatMessage(role: MessageRole.user, content: 'hi')],
+              temperature: 0.7,
+              maxTokens: 100,
+              cancel: Cancellation(),
+            )
+            .toList();
+      },
+    );
+
+    test('omits reasoning fields for non gpt-oss models', () async {
+      final adapter = FakeHttpClientAdapter((options) async {
+        final body = options.data as Map<String, dynamic>;
+        expect(body['model'], 'llama-3.3-70b-versatile');
+        expect(body.containsKey('reasoning_effort'), isFalse);
+        expect(body.containsKey('include_reasoning'), isFalse);
+        return sseResponseBody(['data: [DONE]\n\n']);
+      });
+      final llm = GroqLlm(
+        apiKey: 'key',
+        model: 'llama-3.3-70b-versatile',
+        dio: dioWith(adapter),
+      );
+
+      await llm
+          .streamCompletion(
+            const [ChatMessage(role: MessageRole.user, content: 'hi')],
+            temperature: 0.7,
+            maxTokens: 100,
+            cancel: Cancellation(),
+          )
+          .toList();
+    });
+
+    test('warmUp swallows all errors and never throws', () async {
+      final adapter = FakeHttpClientAdapter(
+        (options) async => errorResponseBody(500),
+      );
+      final llm = GroqLlm(apiKey: 'key', dio: dioWith(adapter));
+
+      await expectLater(llm.warmUp(), completes);
     });
 
     test('maps 401 to AuthError', () async {

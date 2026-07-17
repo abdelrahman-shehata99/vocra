@@ -38,6 +38,20 @@ class DeepgramTts implements TtsProvider {
   @override
   String get audioFormat => 'mp3';
 
+  /// Deepgram Aura has no bracketed audio-tag support, so tags like `[laughs]`
+  /// would be read aloud; the engine strips them before synthesis.
+  @override
+  bool get supportsAudioTags => false;
+
+  @override
+  Future<void> warmUp() async {
+    // Any response still completes the DNS+TCP+TLS handshake and parks the
+    // connection in Dio's keep-alive pool. Never throws.
+    try {
+      await _dio.head<void>('$_baseUrl/speak');
+    } catch (_) {}
+  }
+
   @override
   Future<Uint8List> synthesize(
     String text, {

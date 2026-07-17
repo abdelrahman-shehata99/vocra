@@ -93,6 +93,15 @@ class GeminiLlm implements LlmProvider {
     }
   }
 
+  @override
+  Future<void> warmUp() async {
+    // Any response still completes the DNS+TCP+TLS handshake and parks the
+    // connection in Dio's keep-alive pool. Never throws.
+    try {
+      await _dio.head<void>('$_baseUrl/models');
+    } catch (_) {}
+  }
+
   Future<Response<ResponseBody>> _openStream(
     List<ChatMessage> history, {
     required double temperature,

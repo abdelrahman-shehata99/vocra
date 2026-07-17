@@ -62,6 +62,52 @@ void main() {
       await tts.synthesize('hi', cancel: Cancellation());
     });
 
+    test('supportsAudioTags is true only for the eleven_v3 model family', () {
+      expect(
+        ElevenLabsTts(apiKey: 'k', modelId: 'eleven_v3').supportsAudioTags,
+        isTrue,
+      );
+      expect(
+        ElevenLabsTts(apiKey: 'k').supportsAudioTags, // default flash v2.5
+        isFalse,
+      );
+      expect(
+        ElevenLabsTts(
+          apiKey: 'k',
+          modelId: 'eleven_multilingual_v2',
+        ).supportsAudioTags,
+        isFalse,
+      );
+    });
+
+    test('style and use_speaker_boost are sent only when configured', () async {
+      final adapter = FakeHttpClientAdapter((options) async {
+        final settings =
+            (options.data as Map<String, dynamic>)['voice_settings']
+                as Map<String, dynamic>;
+        expect(settings['style'], 0.6);
+        expect(settings['use_speaker_boost'], true);
+        return bytesResponseBody([0]);
+      });
+      final tts = ElevenLabsTts(
+        apiKey: 'key',
+        style: 0.6,
+        useSpeakerBoost: true,
+        dio: dioWith(adapter),
+      );
+
+      await tts.synthesize('hi', cancel: Cancellation());
+    });
+
+    test('warmUp swallows all errors and never throws', () async {
+      final adapter = FakeHttpClientAdapter(
+        (options) async => errorResponseBody(500),
+      );
+      final tts = ElevenLabsTts(apiKey: 'key', dio: dioWith(adapter));
+
+      await expectLater(tts.warmUp(), completes);
+    });
+
     test('maps 401 to AuthError', () async {
       final adapter = FakeHttpClientAdapter(
         (options) async => errorResponseBody(401),

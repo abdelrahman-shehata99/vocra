@@ -44,16 +44,28 @@ class DeepgramStt implements SttTransport {
     String baseUrl = 'wss://api.deepgram.com/v1/listen',
     WebSocketChannelFactory channelFactory = _defaultChannelFactory,
     Duration keepAliveInterval = const Duration(seconds: 8),
+    Duration endpointing = const Duration(milliseconds: 300),
+    Duration utteranceEnd = const Duration(milliseconds: 1000),
   }) : _apiKey = apiKey,
        _baseUrl = baseUrl,
        _channelFactory = channelFactory,
-       _keepAliveInterval = keepAliveInterval;
+       _keepAliveInterval = keepAliveInterval,
+       _endpointing = endpointing,
+       _utteranceEnd = utteranceEnd;
 
   final String _apiKey;
   final String model;
   final String _baseUrl;
   final WebSocketChannelFactory _channelFactory;
   final Duration _keepAliveInterval;
+
+  /// Silence after speech before Deepgram finalizes a segment. Lower values
+  /// make turn-taking snappier but risk cutting off mid-utterance pauses.
+  final Duration _endpointing;
+
+  /// Fallback silence window before Deepgram emits `UtteranceEnd`. Deepgram
+  /// requires this to be at least 1000 ms.
+  final Duration _utteranceEnd;
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
@@ -89,17 +101,15 @@ class DeepgramStt implements SttTransport {
         'model': model,
         'interim_results': 'true',
         'punctuate': 'true',
-        'endpointing': '300',
+        'endpointing': '${_endpointing.inMilliseconds}',
         // Fallback end-of-utterance signal: Deepgram emits an `UtteranceEnd`
         // message after this many ms of silence when endpointing alone didn't
         // produce a `speech_final`. Without it, an utterance that never gets a
         // `speech_final` would never trigger a turn (see _onMessage).
-        'utterance_end_ms': '1000',
+        'utterance_end_ms': '${_utteranceEnd.inMilliseconds}',
       },
     );
 
-    // ignore: avoid_print
-    print('[vocra] DeepgramStt: connecting WS -> $uri');
     final channel = _channelFactory(
       uri,
       headers: {'Authorization': 'Token $_apiKey'},
@@ -113,8 +123,6 @@ class DeepgramStt implements SttTransport {
         'Deepgram STT connection timed out after 10s.',
       ),
     );
-    // ignore: avoid_print
-    print('[vocra] DeepgramStt: WS ready (connected)');
 
     _subscription = channel.stream.listen(
       _onMessage,

@@ -11,4 +11,10 @@ abstract class LlmProvider {
     required int maxTokens,
     required Cancellation cancel,
   });
+
+  /// Optionally pre-establishes the network path (DNS + TCP + TLS) so the
+  /// first [streamCompletion] doesn't pay the handshake (~100–300 ms). Called
+  /// fire-and-forget at conversation start; implementations **must swallow all
+  /// errors and never throw**. Default: no-op.
+  Future<void> warmUp() async {}
 }
