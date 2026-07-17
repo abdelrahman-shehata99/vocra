@@ -2,8 +2,16 @@ name: vocra_core
 description: >
   Pure-Dart brain of the Vocra voice AI SDK: engine, provider adapters, and
   transport. No Flutter dependency — see vocra_flutter for the platform layer.
-version: 0.1.0
-publish_to: 'none'
+version: 0.2.0
+repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_core
+issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
+homepage: https://github.com/abdelrahman-shehata99/vocra
+topics:
+  - voice
+  - speech-to-text
+  - text-to-speech
+  - voice-assistant
+  - ai
 resolution: workspace
 
 environment:

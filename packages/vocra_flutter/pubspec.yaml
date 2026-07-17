@@ -2,8 +2,16 @@ name: vocra_flutter
 description: >
   Flutter platform layer for the Vocra voice AI SDK: mic capture, audio
   playback, permissions, and the app-facing VoiceSession API. Uses vocra_core.
-version: 0.1.0
-publish_to: 'none'
+version: 0.2.0
+repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter
+issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
+homepage: https://github.com/abdelrahman-shehata99/vocra
+topics:
+  - voice
+  - speech-to-text
+  - text-to-speech
+  - voice-assistant
+  - ai
 resolution: workspace
 
 environment:
@@ -13,8 +21,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  vocra_core:
-    path: ../vocra_core
+  vocra_core: ^0.2.0
   just_audio: ^0.10.6
   record: ^7.1.1
   audio_session: ^0.2.4

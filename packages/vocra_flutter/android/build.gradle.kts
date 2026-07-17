@@ -4,6 +4,9 @@ plugins {
     // built-in Kotlin support (Flutter >=3.44.0, this package's floor).
 }
 
+group = "com.vocra.voice_flutter"
+version = "0.2.0"
+
 android {
     namespace = "com.vocra.voice_flutter"
     compileSdk = 36
