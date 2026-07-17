@@ -1,4 +1,4 @@
-name: voice_ai_sdk_workspace
+name: vocra_workspace
 publish_to: 'none'
 
 environment:
@@ -8,12 +8,12 @@ dev_dependencies:
   melos: ^8.0.0
 
 workspace:
-  - packages/voice_core
-  - packages/voice_flutter
-  - packages/voice_flutter/example
+  - packages/vocra_core
+  - packages/vocra_flutter
+  - packages/vocra_flutter/example
 
 melos:
-  name: voice_ai_sdk
+  name: vocra
 
   scripts:
     analyze:
@@ -28,4 +28,4 @@ melos:
       run: |
         melos exec --dir-exists=test --no-flutter -- "dart test" && \
         melos exec --dir-exists=test --flutter -- "flutter test"
-      description: Run unit tests (voice_core) and widget tests (Flutter packages).
+      description: Run unit tests (vocra_core) and widget tests (Flutter packages).

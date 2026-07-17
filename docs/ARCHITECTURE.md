@@ -1,6 +1,6 @@
 # Architecture notes
 
-This documents how the pieces in `voice_core` fit together, and a handful
+This documents how the pieces in `vocra_core` fit together, and a handful
 of places where the implementation extends the literal build spec — always
 with a concrete reason, never speculatively.
 
@@ -160,7 +160,7 @@ standards:
   is never paused, and a sufficiently long interim transcript arriving
   while `TurnState.speaking` calls `interrupt()` (threshold set by
   `BargeInSensitivity`). This is pure Dart and is unit tested the same way
-  as everything else in `voice_core` — see the *"VoiceEngine full-duplex"*
+  as everything else in `vocra_core` — see the *"VoiceEngine full-duplex"*
   group in `voice_engine_test.dart`.
 - **Native echo cancellation** (`NativeAecMicSource` +
   `ios/Classes/AecAudioEngine.swift` + `android/.../AecAudioRecorder.kt`):

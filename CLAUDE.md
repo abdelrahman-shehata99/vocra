@@ -28,10 +28,10 @@ cost. Each host app supplies its own provider API keys (Groq for LLM, Deepgram f
 | `melos bootstrap` | Link local packages together (after clone / dependency changes) |
 | `melos run analyze` | `dart analyze .` across all packages |
 | `melos run format` | `dart format --set-exit-if-changed .` across all packages (check only, no auto-fix) |
-| `melos run test` | `dart test` (voice_core) + `flutter test` (voice_flutter) |
-| `cd packages/voice_core && dart test` | Faster iteration on just the engine package |
-| `cd packages/voice_flutter && flutter test` | Faster iteration on just the platform layer |
-| `cd packages/voice_flutter/example && flutter run` | Run the demo app (needs device/simulator + a "Test keys" flow for Groq/Deepgram keys) |
+| `melos run test` | `dart test` (vocra_core) + `flutter test` (vocra_flutter) |
+| `cd packages/vocra_core && dart test` | Faster iteration on just the engine package |
+| `cd packages/vocra_flutter && flutter test` | Faster iteration on just the platform layer |
+| `cd packages/vocra_flutter/example && flutter run` | Run the demo app (needs device/simulator + a "Test keys" flow for Groq/Deepgram keys) |
 
 ## Architecture
 
@@ -39,15 +39,15 @@ cost. Each host app supplies its own provider API keys (Groq for LLM, Deepgram f
 
 ```
 packages/
-├── voice_core/      # pure-Dart engine, provider adapters, transport — NO Flutter import
+├── vocra_core/      # pure-Dart engine, provider adapters, transport — NO Flutter import
 │   └── lib/src/
 │       ├── engine/      # VoiceEngine (orchestrator), TurnMachine, AudioQueue, SentenceSplitter
 │       ├── providers/   # GroqLlm, DeepgramStt, DeepgramTts + Llm/Stt/Tts interfaces
-│       ├── io/           # AudioSink / MicSource / KeyStore interfaces (implemented in voice_flutter)
+│       ├── io/           # AudioSink / MicSource / KeyStore interfaces (implemented in vocra_flutter)
 │       ├── models/       # VoiceConfig, VoiceError, TurnState, TurnMetrics, ChatMessage, TranscriptEvent
 │       ├── transport/    # SseParser (Groq streaming)
 │       └── util/         # Cancellation
-└── voice_flutter/   # Flutter plugin layer: mic, audio playback, permissions, VoiceSession
+└── vocra_flutter/   # Flutter plugin layer: mic, audio playback, permissions, VoiceSession
     ├── lib/src/          # FlutterMicSource, FlutterAudioSink, NativeAecMicSource, SecureKeyStore,
     │                     # AudioSessionSetup, MicPermission, VoiceSession (app-facing API)
     ├── ios/Classes/      # AecAudioEngine.swift (native echo cancellation, optional full-duplex)
@@ -56,17 +56,17 @@ packages/
 ```
 
 ### Key invariants
-- `voice_core` must **never** import `package:flutter`. Anything Flutter-specific belongs in
-  `voice_flutter`, wired into `voice_core` through the `AudioSink` / `MicSource` / `KeyStore`
+- `vocra_core` must **never** import `package:flutter`. Anything Flutter-specific belongs in
+  `vocra_flutter`, wired into `vocra_core` through the `AudioSink` / `MicSource` / `KeyStore`
   interfaces in `lib/src/io/`.
-- `TurnMachine` (`packages/voice_core/lib/src/engine/turn_machine.dart`) is the **sole** owner
+- `TurnMachine` (`packages/vocra_core/lib/src/engine/turn_machine.dart`) is the **sole** owner
   of turn-state transitions (`idle → listening → thinking → speaking → listening`, plus any
   state → `idle` on stop). Only `VoiceEngine` drives it — this is what makes "mic must not
   reach STT while the AI is speaking" (half-duplex) enforceable in one place. Don't transition
   turn state from anywhere else, even for edge cases.
 - All provider/engine failures surface as a typed `VoiceError` subtype (`AuthError`,
   `RateLimitError`, `NetworkError`, `ProviderError`, `ConfigError` —
-  `packages/voice_core/lib/src/models/voice_error.dart`), **including mid-stream failures**
+  `packages/vocra_core/lib/src/models/voice_error.dart`), **including mid-stream failures**
   (a dropped SSE stream from Groq, a WebSocket that closes mid-conversation from Deepgram).
   Never let a raw provider exception leak out of an adapter or the engine.
 - Providers (`LlmProvider`, `TtsProvider`, `SttTransport`) are pluggable interfaces — current
@@ -87,25 +87,25 @@ full-duplex/native-AEC logic** — it documents *why* each of these extends beyo
 build spec, with rationale, so you don't need to rediscover it from the diff.
 
 ### Key Files
-- [packages/voice_core/lib/src/engine/voice_engine.dart](packages/voice_core/lib/src/engine/voice_engine.dart) — the orchestrator; drives `TurnMachine`, wires STT/LLM/TTS together
-- [packages/voice_core/lib/src/engine/turn_machine.dart](packages/voice_core/lib/src/engine/turn_machine.dart) — turn-state transition rules
-- [packages/voice_core/lib/src/engine/audio_queue.dart](packages/voice_core/lib/src/engine/audio_queue.dart) — ordered TTS clip playback + interruption
-- [packages/voice_core/lib/src/models/voice_config.dart](packages/voice_core/lib/src/models/voice_config.dart) — public config surface (`DuplexMode`, `BargeInSensitivity`, provider wiring)
-- [packages/voice_core/lib/src/models/voice_error.dart](packages/voice_core/lib/src/models/voice_error.dart) — typed error hierarchy
-- [packages/voice_flutter/lib/src/voice_session.dart](packages/voice_flutter/lib/src/voice_session.dart) — the app-facing entry point (`VoiceSession`)
+- [packages/vocra_core/lib/src/engine/voice_engine.dart](packages/vocra_core/lib/src/engine/voice_engine.dart) — the orchestrator; drives `TurnMachine`, wires STT/LLM/TTS together
+- [packages/vocra_core/lib/src/engine/turn_machine.dart](packages/vocra_core/lib/src/engine/turn_machine.dart) — turn-state transition rules
+- [packages/vocra_core/lib/src/engine/audio_queue.dart](packages/vocra_core/lib/src/engine/audio_queue.dart) — ordered TTS clip playback + interruption
+- [packages/vocra_core/lib/src/models/voice_config.dart](packages/vocra_core/lib/src/models/voice_config.dart) — public config surface (`DuplexMode`, `BargeInSensitivity`, provider wiring)
+- [packages/vocra_core/lib/src/models/voice_error.dart](packages/vocra_core/lib/src/models/voice_error.dart) — typed error hierarchy
+- [packages/vocra_flutter/lib/src/voice_session.dart](packages/vocra_flutter/lib/src/voice_session.dart) — the app-facing entry point (`VoiceSession`)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design rationale for non-obvious spec deviations
 
 ## Development Conventions
 
 ### Code Style
 - `dart format .` (or `melos run format` to check) before commits.
-- Default `lints` (voice_core) / `flutter_lints` (voice_flutter) — no project-specific
+- Default `lints` (vocra_core) / `flutter_lints` (vocra_flutter) — no project-specific
   analysis_options beyond the example app's.
 
 ### Testing
-- `voice_core`: `package:test` + `mocktail` for mocking; `stream_channel` /
+- `vocra_core`: `package:test` + `mocktail` for mocking; `stream_channel` /
   `test/providers/fake_websocket_channel.dart` fakes for WebSocket-based providers (Deepgram).
-- `voice_flutter`: `flutter_test`.
+- `vocra_flutter`: `flutter_test`.
 - Test files mirror `lib/src/...` structure under `test/...`.
 - Non-obvious behavioral decisions get a **dedicated named test** describing the decision (e.g.
   `deepgram_stt_test.dart`'s *"maps speech_final ... not raw is_final"*) rather than being
@@ -135,9 +135,9 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 | Doc | Read when |
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Touching turn-state, `AudioQueue`, Deepgram final-transcript mapping, `VoiceSession` re-entrancy,/ or full-duplex/native-AEC logic |
-| [packages/voice_core/README.md](packages/voice_core/README.md) | Working on the engine/provider-adapter package specifically |
-| [packages/voice_flutter/README.md](packages/voice_flutter/README.md) | Working on the Flutter platform layer specifically |
-| [packages/voice_flutter/example/README.md](packages/voice_flutter/example/README.md) | Running/modifying the demo app |
+| [packages/vocra_core/README.md](packages/vocra_core/README.md) | Working on the engine/provider-adapter package specifically |
+| [packages/vocra_flutter/README.md](packages/vocra_flutter/README.md) | Working on the Flutter platform layer specifically |
+| [packages/vocra_flutter/example/README.md](packages/vocra_flutter/example/README.md) | Running/modifying the demo app |
 
 ## Git Workflow
 
