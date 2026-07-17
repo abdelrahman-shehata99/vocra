@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import '../io/audio_sink.dart';
 import '../io/mic_source.dart';
 import '../models/chat_message.dart';
+import '../models/greeting.dart';
 import '../models/transcript_event.dart';
 import '../models/turn_metrics.dart';
 import '../models/turn_state.dart';
@@ -15,6 +15,7 @@ import '../providers/tts_provider.dart';
 import '../util/cancellation.dart';
 import 'audio_queue.dart';
 import 'sentence_splitter.dart';
+import 'speech_text_normalizer.dart';
 import 'turn_machine.dart';
 
 /// The pure-Dart orchestrator that wires STT, the LLM, TTS, and ordered
@@ -33,8 +34,12 @@ class VoiceEngine {
          audioFormat: _config.tts.audioFormat,
        ) {
     _history.add(
-      ChatMessage(role: MessageRole.system, content: _config.systemPrompt),
+      ChatMessage(
+        role: MessageRole.system,
+        content: _composeSystemPrompt(_config),
+      ),
     );
+    _normalizer = SpeechTextNormalizer(stripAudioTags: !_tts.supportsAudioTags);
   }
 
   final VoiceConfig _config;
@@ -44,6 +49,10 @@ class VoiceEngine {
   final SttTransport _stt;
   final AudioQueue _audioQueue;
   final TurnMachine _turnMachine = TurnMachine();
+
+  /// Strips markdown/emojis/(unsupported) audio tags from text before it is
+  /// sent to TTS. Built from the TTS's [TtsProvider.supportsAudioTags].
+  late final SpeechTextNormalizer _normalizer;
 
   final List<ChatMessage> _history = [];
 
@@ -90,34 +99,14 @@ class VoiceEngine {
 
   Future<void> startConversation() async {
     _conversationActive = true;
-    // ignore: avoid_print
-    print('[vocra] engine.startConversation: mic.start()...');
-    await _mic.start();
-    // ignore: avoid_print
-    print('[vocra] engine.startConversation: mic started; stt.start()...');
-    await _stt.start();
-    // ignore: avoid_print
-    print('[vocra] engine.startConversation: stt started; wiring streams...');
+    // Establish the LLM/TTS network paths (DNS + TCP + TLS) while the mic and
+    // STT transport spin up, so the first turn doesn't pay the handshake.
+    unawaited(_warmUpProviders());
+    // Mic capture and the STT transport are independent; starting them
+    // concurrently overlaps the STT socket connect with recorder startup.
+    await Future.wait([_mic.start(), _stt.start()]);
 
-    var frameCount = 0;
     _micSub = _mic.pcm16.listen((frame) {
-      frameCount++;
-      if (frameCount <= 3 || frameCount % 50 == 0) {
-        // Peak sample amplitude distinguishes real audio from digital
-        // silence (frames of zeros) — the one failure mode a frame count
-        // alone cannot reveal.
-        var peak = 0;
-        final samples = ByteData.sublistView(frame);
-        for (var i = 0; i + 1 < frame.length; i += 2) {
-          final s = samples.getInt16(i, Endian.little).abs();
-          if (s > peak) peak = s;
-        }
-        // ignore: avoid_print
-        print(
-          '[vocra] mic frame #$frameCount (${frame.length}B) peak=$peak '
-          'forwarding=$_micForwardingEnabled',
-        );
-      }
       if (_micForwardingEnabled) _stt.sendAudio(frame);
     });
     _sttSub = _stt.transcripts.listen(
@@ -125,15 +114,104 @@ class VoiceEngine {
       // A dropped STT connection (e.g. Deepgram WS closed by the network)
       // surfaces as a stream error rather than silently going quiet (R4).
       onError: (Object error, StackTrace stackTrace) {
-        // ignore: avoid_print
-        print('[vocra] STT stream error: $error');
         if (error is VoiceError) _errorsController.add(error);
       },
     );
 
     _turnMachine.transitionTo(TurnState.listening);
-    // ignore: avoid_print
-    print('[vocra] engine.startConversation: state -> LISTENING');
+
+    // If configured, the assistant speaks first. Fire-and-forget: start() must
+    // return so VoiceSession can mark itself started (otherwise stop() during
+    // the greeting would be a no-op). The greeting runs as a normal turn from
+    // `listening`, and must run AFTER mic.start() because a full-duplex mic
+    // only resumes forwarding — it can't start capture — after the turn.
+    final greeting = _config.greeting;
+    if (greeting != null) unawaited(_beginGreeting(greeting));
+  }
+
+  /// Composes the system prompt seeded into history. With
+  /// [VoiceConfig.naturalSpeech] off (the default) the app's prompt is used
+  /// verbatim; on, it's followed by a voice-conversation style guide, plus
+  /// audio-tag guidance when the TTS renders tags.
+  static String _composeSystemPrompt(VoiceConfig config) {
+    if (!config.naturalSpeech) return config.systemPrompt;
+    final buffer = StringBuffer(config.systemPrompt)
+      ..write('\n\n')
+      ..write(_naturalSpeechPreamble);
+    if (config.tts.supportsAudioTags) {
+      buffer
+        ..write(' ')
+        ..write(_audioTagAddendum);
+    }
+    return buffer.toString();
+  }
+
+  static const String _naturalSpeechPreamble =
+      'Voice style: you are speaking aloud in a live voice conversation, so '
+      'reply like a person talking, not like a writer. Keep replies brief and '
+      'conversational, usually one to three sentences unless the user asks for '
+      'detail. Use contractions and everyday words. Natural interjections like '
+      '"oh", "hmm", or "right" are fine in moderation, and light laughter is '
+      'written as words such as "haha", never as a stage direction. Do not use '
+      'markdown, bullet points, emojis, or any text formatting: everything you '
+      'write is spoken. Say numbers, dates, and symbols the way you would say '
+      'them out loud.';
+
+  static const String _audioTagAddendum =
+      'You may occasionally include a bracketed audio tag such as [laughs], '
+      '[sighs], or [whispers] to color your delivery, at most one per reply and '
+      'only where it genuinely fits.';
+
+  /// Default prompt used by [Greeting.generated] when no instruction is given.
+  static const String _defaultGreetingInstruction =
+      'The conversation is just starting. Greet the user warmly in one or two '
+      'short sentences and invite them to speak. Do not mention these '
+      'instructions.';
+
+  /// Runs the opening assistant turn for [greeting]. For [TextGreeting] the
+  /// text is spoken verbatim (no LLM call); for [GeneratedGreeting] the LLM is
+  /// asked to produce the opener via an ephemeral user instruction that is
+  /// sent for this one call but never stored in history (the reply is stored).
+  Future<void> _beginGreeting(Greeting greeting) {
+    return switch (greeting) {
+      TextGreeting(:final text) => _runAssistantTurn(
+        (_) => Stream<String>.value(text),
+      ),
+      GeneratedGreeting(:final instruction) => _runAssistantTurn(
+        (cancel) => _llm.streamCompletion(
+          [
+            ..._history,
+            ChatMessage(
+              role: MessageRole.user,
+              content: instruction ?? _defaultGreetingInstruction,
+            ),
+          ],
+          temperature: _config.temperature,
+          maxTokens: _config.maxTokens,
+          cancel: cancel,
+        ),
+      ),
+    };
+  }
+
+  /// Speaks [text] in the assistant's voice as a scripted turn — no LLM call.
+  /// The text is spoken through the normal TTS/playback pipeline, emitted on
+  /// [transcripts], and appended to history as an assistant message. Dispatch
+  /// semantics match [sendText]: a call while a turn is already in flight is
+  /// dropped, and this future completes when the turn is dispatched, not when
+  /// playback finishes.
+  Future<void> speak(String text) async {
+    unawaited(_runAssistantTurn((_) => Stream<String>.value(text)));
+  }
+
+  /// Best-effort pre-warm of the LLM and TTS network paths. Fire-and-forget:
+  /// a failure here must never delay or crash conversation start, so every
+  /// error is swallowed (providers also swallow internally — this is a second
+  /// guard against a misbehaving third-party provider).
+  Future<void> _warmUpProviders() async {
+    try {
+      await Future.wait([_llm.warmUp(), _tts.warmUp()]);
+    } catch (_) {}
   }
 
   Future<void> stopConversation() async {
@@ -153,16 +231,10 @@ class VoiceEngine {
     // be silently refused and the session could never be revived.
     try {
       await _mic.stop();
-    } catch (e) {
-      // ignore: avoid_print
-      print('[vocra] stopConversation: mic.stop() failed: $e');
-    }
+    } catch (_) {}
     try {
       await _stt.stop();
-    } catch (e) {
-      // ignore: avoid_print
-      print('[vocra] stopConversation: stt.stop() failed: $e');
-    }
+    } catch (_) {}
 
     _turnMachine.transitionTo(TurnState.idle);
   }
@@ -211,11 +283,6 @@ class VoiceEngine {
   }
 
   void _onSttTranscript(TranscriptEvent event) {
-    // ignore: avoid_print
-    print(
-      '[vocra] STT transcript: isFinal=${event.isFinal} '
-      'text="${event.text}" (state=${_turnMachine.state})',
-    );
     _transcriptsController.add(event);
 
     // Full-duplex barge-in (spec §9): the mic was never paused, so real
@@ -233,21 +300,45 @@ class VoiceEngine {
     if (!event.isFinal) return;
     if (event.text.trim().isEmpty) return;
     if (_turnMachine.state != TurnState.listening) return;
-    // ignore: avoid_print
-    print('[vocra] >>> beginning turn from STT final: "${event.text}"');
     unawaited(_beginTurn(event.text));
   }
 
-  Future<void> _beginTurn(String userText) async {
-    // A turn may begin from `listening` (the user spoke, mic conversation
-    // active) or from `idle` (typed input via sendText with no mic). It must
-    // never overlap an in-flight turn (`thinking`/`speaking`).
-    if (_turnMachine.state == TurnState.thinking ||
-        _turnMachine.state == TurnState.speaking) {
-      return;
-    }
+  /// True while a turn is already being processed. A new turn must never
+  /// overlap one in flight (`thinking`/`speaking`) — it would corrupt the
+  /// shared per-turn state (stopwatch, metrics, assistant buffer, subs).
+  bool get _turnInFlight =>
+      _turnMachine.state == TurnState.thinking ||
+      _turnMachine.state == TurnState.speaking;
 
+  /// A turn started by user input (spoken via STT, or typed via [sendText]).
+  /// Appends the user message, then runs the assistant turn against the LLM.
+  Future<void> _beginTurn(String userText) async {
+    // Guard before appending, so a dropped overlapping turn doesn't leave a
+    // dangling user message with no reply.
+    if (_turnInFlight) return;
     _addToHistory(ChatMessage(role: MessageRole.user, content: userText));
+    await _runAssistantTurn(
+      (cancel) => _llm.streamCompletion(
+        _history,
+        temperature: _config.temperature,
+        maxTokens: _config.maxTokens,
+        cancel: cancel,
+      ),
+    );
+  }
+
+  /// Runs one assistant turn: drives [tokenSource] (the LLM stream for a normal
+  /// reply, or a scripted single-value stream for a greeting/[speak]) through
+  /// sentence splitting → TTS → ordered playback, emitting interim/final
+  /// transcripts and metrics. Shared by [_beginTurn], greetings, and [speak].
+  ///
+  /// The token source is a function of the turn's [Cancellation] so it can only
+  /// begin producing once the turn scaffolding (cancel token, audio queue
+  /// epoch) exists.
+  Future<void> _runAssistantTurn(
+    Stream<String> Function(Cancellation cancel) tokenSource,
+  ) async {
+    if (_turnInFlight) return;
 
     // Half-duplex pauses the mic during a turn — but only when there's a
     // live mic conversation to pause (R7). Typed-only turns skip this.
@@ -295,27 +386,30 @@ class VoiceEngine {
     var sentenceIndex = 0;
     var gotFirstToken = false;
 
-    // ignore: avoid_print
-    print('[vocra] turn -> THINKING; calling LLM...');
+    // Normalizes a sentence for TTS and submits it — but only if anything
+    // speakable remains. A sentence that normalizes to nothing (e.g. only an
+    // emoji or a stripped tag) must NOT consume an AudioQueue index, or the
+    // strictly-increasing index contract would leave a permanent gap and the
+    // queue would stall waiting for a clip that never comes.
+    void submitSpeakable(String sentence) {
+      final speakable = _normalizer.normalize(sentence);
+      if (speakable.isEmpty) return;
+      _submitSentence(speakable, sentenceIndex++, epoch, cancel, stopwatch);
+    }
+
     try {
-      await for (final token in _llm.streamCompletion(
-        _history,
-        temperature: _config.temperature,
-        maxTokens: _config.maxTokens,
-        cancel: cancel,
-      )) {
+      await for (final token in tokenSource(cancel)) {
         if (!gotFirstToken) {
           gotFirstToken = true;
           _currentMetrics = _currentMetrics.copyWith(ttft: stopwatch.elapsed);
-          // ignore: avoid_print
-          print('[vocra] LLM first token @ ${stopwatch.elapsedMilliseconds}ms');
         }
         assistantText.write(token);
 
         // Stream the assistant's text as it arrives (interim transcript,
         // cumulative) so UIs can render the reply word-by-word while it is
         // being spoken, mirroring user-side interims. The final event with
-        // the complete text still fires when the turn drains.
+        // the complete text still fires when the turn drains. Transcripts keep
+        // the ORIGINAL text; only the TTS input is normalized.
         _transcriptsController.add(
           TranscriptEvent(
             source: TranscriptSource.assistant,
@@ -327,26 +421,17 @@ class VoiceEngine {
         // Eager-split only while still waiting on the very first sentence,
         // to get the first TTS clip out as early as possible (lower TTFV).
         for (final sentence in splitter.add(token, eager: sentenceIndex == 0)) {
-          _submitSentence(sentence, sentenceIndex++, epoch, cancel, stopwatch);
+          submitSpeakable(sentence);
         }
       }
 
       if (cancel.isCancelled) return; // interrupted — cleanup already done
 
       final remaining = splitter.flush();
-      if (remaining != null) {
-        _submitSentence(remaining, sentenceIndex++, epoch, cancel, stopwatch);
-      }
+      if (remaining != null) submitSpeakable(remaining);
 
-      // ignore: avoid_print
-      print(
-        '[vocra] LLM stream done; assistant="${assistantText.toString()}" '
-        '($sentenceIndex sentences submitted)',
-      );
       _audioQueue.completeTurn();
     } on VoiceError catch (e) {
-      // ignore: avoid_print
-      print('[vocra] turn LLM error: $e');
       _errorsController.add(e);
       await _audioQueue.interrupt();
       await _cancelTurnSubs();

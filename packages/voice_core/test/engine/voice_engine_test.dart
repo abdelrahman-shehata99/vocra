@@ -17,19 +17,26 @@ class _Harness {
     int maxHistoryMessages = 20,
     DuplexMode duplex = DuplexMode.halfDuplex,
     BargeInSensitivity sensitivity = BargeInSensitivity.balanced,
+    Greeting? greeting,
+    bool naturalSpeech = false,
+    String systemPrompt = 'You are a helpful assistant.',
+    bool ttsSupportsAudioTags = false,
   }) : mic = FakeMicSource(),
        stt = FakeSttTransport(),
        llm = FakeLlmProvider(),
        tts = FakeTtsProvider(),
        sink = FakeAudioSink() {
+    tts.supportsAudioTags = ttsSupportsAudioTags;
     config = VoiceConfig(
       llm: llm,
       tts: tts,
       stt: stt,
-      systemPrompt: 'You are a helpful assistant.',
+      systemPrompt: systemPrompt,
       maxHistoryMessages: maxHistoryMessages,
       duplex: duplex,
       sensitivity: sensitivity,
+      greeting: greeting,
+      naturalSpeech: naturalSpeech,
     );
     engine = VoiceEngine(config, audioSink: sink, mic: mic);
   }
@@ -480,5 +487,363 @@ void main() {
         expect(h.llm.lastCancel?.isCancelled, isFalse);
       },
     );
+  });
+
+  group('VoiceEngine greeting', () {
+    test(
+      'Greeting.text speaks first: thinking -> speaking -> listening before '
+      'any user input, and the text reaches TTS',
+      () async {
+        final h = _Harness(greeting: const Greeting.text('Hey there!'));
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+
+        await h.engine.startConversation();
+        await pump(30);
+
+        expect(states, [
+          TurnState.listening,
+          TurnState.thinking,
+          TurnState.speaking,
+          TurnState.listening,
+        ]);
+        expect(h.tts.synthesizedText, contains('Hey there!'));
+        // The LLM is never called for a fixed-text greeting.
+        expect(h.llm.historySnapshots, isEmpty);
+      },
+    );
+
+    test(
+      'Greeting.text emits assistant transcripts and appends the greeting to '
+      'history as an assistant message',
+      () async {
+        final h = _Harness(greeting: const Greeting.text('Hey there!'));
+        final transcripts = <TranscriptEvent>[];
+        h.engine.transcripts.listen(transcripts.add);
+
+        await h.engine.startConversation();
+        await pump(30);
+
+        expect(
+          transcripts.any(
+            (e) =>
+                e.source == TranscriptSource.assistant &&
+                e.isFinal &&
+                e.text == 'Hey there!',
+          ),
+          isTrue,
+        );
+
+        // A following user turn should see the greeting in history as an
+        // assistant message preceding the new user message.
+        h.stt.emitFinal('hello');
+        await pump(5);
+        final history = h.llm.historySnapshots.single;
+        expect(history[0].role, MessageRole.system);
+        expect(history[1].role, MessageRole.assistant);
+        expect(history[1].content, 'Hey there!');
+        expect(history[2].role, MessageRole.user);
+        expect(history[2].content, 'hello');
+      },
+    );
+
+    test('Greeting.text pauses the mic while greeting, then resumes '
+        '(half-duplex R7)', () async {
+      final h = _Harness(greeting: const Greeting.text('Hey there!'));
+
+      await h.engine.startConversation();
+      await pump(30);
+
+      expect(h.mic.pauseCalls, 1);
+      expect(h.mic.resumeCalls, 1);
+    });
+
+    test(
+      'Greeting.generated sends an ephemeral user instruction that is never '
+      'stored in history',
+      () async {
+        final h = _Harness(greeting: const Greeting.generated());
+
+        await h.engine.startConversation();
+        await pump(5);
+
+        // The generated greeting calls the LLM with [system, user(instruction)].
+        final promptHistory = h.llm.historySnapshots.single;
+        expect(promptHistory, hasLength(2));
+        expect(promptHistory[0].role, MessageRole.system);
+        expect(promptHistory[1].role, MessageRole.user);
+        expect(promptHistory[1].content, contains('Greet the user'));
+
+        h.llm.pushToken('Hello and welcome! ');
+        await h.llm.endStream();
+        await pump(30);
+
+        // A following user turn must NOT contain the ephemeral instruction;
+        // it should contain the stored assistant greeting instead.
+        h.stt.emitFinal('hi');
+        await pump(5);
+        final next = h.llm.historySnapshots.last;
+        expect(
+          next.any((m) => m.content.contains('Greet the user')),
+          isFalse,
+        );
+        expect(
+          next.any(
+            (m) =>
+                m.role == MessageRole.assistant &&
+                m.content == 'Hello and welcome! ',
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test('Greeting.generated uses a custom instruction when provided', () async {
+      final h = _Harness(
+        greeting: const Greeting.generated(instruction: 'Say hi in French.'),
+      );
+
+      await h.engine.startConversation();
+      await pump(5);
+
+      final promptHistory = h.llm.historySnapshots.single;
+      expect(promptHistory[1].content, 'Say hi in French.');
+    });
+
+    test('no greeting configured leaves startConversation unchanged', () async {
+      final h = _Harness();
+      final states = <TurnState>[];
+      h.engine.turnState.listen(states.add);
+
+      await h.engine.startConversation();
+      await pump(10);
+
+      expect(states, [TurnState.listening]);
+      expect(h.llm.historySnapshots, isEmpty);
+      expect(h.tts.synthesizedText, isEmpty);
+    });
+
+    test('startConversation returns without waiting for the greeting to '
+        'finish', () async {
+      final h = _Harness(greeting: const Greeting.generated());
+      final states = <TurnState>[];
+      h.engine.turnState.listen(states.add);
+
+      // The generated greeting's LLM stream is deliberately never ended, so if
+      // start() awaited the greeting this call would hang. It completing (and
+      // the state resting at `thinking`) proves the greeting is fire-and-forget.
+      await h.engine.startConversation().timeout(const Duration(seconds: 2));
+      await pump(5);
+
+      expect(states, [TurnState.listening, TurnState.thinking]);
+    });
+
+    test('stopConversation during the greeting settles at idle', () async {
+      final h = _Harness(greeting: const Greeting.generated());
+      final states = <TurnState>[];
+      h.engine.turnState.listen(states.add);
+
+      await h.engine.startConversation();
+      await pump(2);
+      h.llm.pushToken('Hello '); // greeting is speaking/thinking
+      await pump(2);
+
+      await h.engine.stopConversation();
+      await pump(5);
+
+      expect(states.last, TurnState.idle);
+    });
+
+    test('interrupt during the greeting returns to listening', () async {
+      final h = _Harness(greeting: const Greeting.generated());
+      final states = <TurnState>[];
+      h.engine.turnState.listen(states.add);
+
+      await h.engine.startConversation();
+      await pump(2);
+      final cancel = h.llm.lastCancel;
+
+      await h.engine.interrupt();
+      await pump(5);
+
+      expect(cancel?.isCancelled, isTrue);
+      expect(states.last, TurnState.listening);
+    });
+
+    test(
+      'full-duplex: a long interim during the greeting barges in and cancels it',
+      () async {
+        final h = _Harness(
+          duplex: DuplexMode.fullDuplex,
+          greeting: const Greeting.generated(),
+        );
+        final speakingReached = Completer<void>();
+        h.engine.turnState.listen((s) {
+          if (s == TurnState.speaking && !speakingReached.isCompleted) {
+            speakingReached.complete();
+          }
+        });
+
+        await h.engine.startConversation();
+        await pump(2);
+        h.llm.pushToken('Hello and welcome to the show today! ');
+        await speakingReached.future.timeout(const Duration(seconds: 2));
+
+        final cancel = h.llm.lastCancel;
+        h.stt.emitInterim('actually wait a moment please');
+        await pump(5);
+
+        expect(cancel?.isCancelled, isTrue);
+      },
+    );
+
+    test('speak() runs a scripted assistant turn through TTS and history',
+        () async {
+      final h = _Harness();
+      await h.engine.startConversation();
+      await pump();
+
+      await h.engine.speak('Your order is ready!');
+      await pump(30);
+
+      expect(h.tts.synthesizedText, contains('Your order is ready!'));
+
+      h.stt.emitFinal('thanks');
+      await pump(5);
+      final history = h.llm.historySnapshots.single;
+      expect(
+        history.any(
+          (m) =>
+              m.role == MessageRole.assistant &&
+              m.content == 'Your order is ready!',
+        ),
+        isTrue,
+      );
+    });
+
+    test('speak() while a turn is in flight is dropped', () async {
+      final h = _Harness();
+      await h.engine.startConversation();
+      await pump();
+
+      h.stt.emitFinal('hello');
+      await pump(5); // turn is now thinking, LLM stream open
+
+      await h.engine.speak('interjection');
+      await pump(5);
+
+      // Only the user turn's synthesis should have happened; speak() dropped.
+      expect(h.tts.synthesizedText, isNot(contains('interjection')));
+    });
+  });
+
+  group('VoiceEngine natural speech and normalization', () {
+    Future<void> runOneReply(_Harness h, List<String> tokens) async {
+      await h.engine.startConversation();
+      await pump();
+      h.stt.emitFinal('hi');
+      await pump(3);
+      for (final t in tokens) {
+        h.llm.pushToken(t);
+      }
+      await h.llm.endStream();
+      await pump(30);
+    }
+
+    test('TTS input is normalized while transcripts keep the original text',
+        () async {
+      final h = _Harness();
+      final transcripts = <TranscriptEvent>[];
+      h.engine.transcripts.listen(transcripts.add);
+
+      await runOneReply(h, ['Say **hi** to ', 'everyone now!']);
+
+      expect(h.tts.synthesizedText, contains('Say hi to everyone now!'));
+      // The assistant's original markdown survives on the transcript stream.
+      final assistantFinal = transcripts.lastWhere(
+        (e) => e.source == TranscriptSource.assistant && e.isFinal,
+      );
+      expect(assistantFinal.text, 'Say **hi** to everyone now!');
+    });
+
+    test(
+      'a trailing sentence that normalizes to nothing consumes no AudioQueue '
+      'index and the turn still drains',
+      () async {
+        final h = _Harness();
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+
+        // "All done here!" is sentence 0; the trailing emoji has no terminator
+        // so it arrives via flush and normalizes to empty.
+        await runOneReply(h, ['All done here! ', '🎉🎉🎉']);
+
+        expect(h.sink.enqueuedIndexes, [0]);
+        expect(h.tts.synthesizedText, ['All done here!']);
+        expect(states.last, TurnState.listening); // drained cleanly
+      },
+    );
+
+    test(
+      'audio tags are stripped for a TTS without tag support and kept for one '
+      'with it',
+      () async {
+        final without = _Harness();
+        await runOneReply(without, ['Sure [laughs] ', 'okay then!']);
+        expect(without.tts.synthesizedText, contains('Sure okay then!'));
+
+        final with_ = _Harness(ttsSupportsAudioTags: true);
+        await runOneReply(with_, ['Sure [laughs] ', 'okay then!']);
+        expect(with_.tts.synthesizedText, contains('Sure [laughs] okay then!'));
+      },
+    );
+
+    test('naturalSpeech augments the seeded system prompt with the voice-style '
+        'preamble', () async {
+      final h = _Harness(naturalSpeech: true, systemPrompt: 'You are Bo.');
+      await h.engine.startConversation();
+      await pump();
+      h.stt.emitFinal('hi');
+      await pump(3);
+
+      final system = h.llm.historySnapshots.single[0];
+      expect(system.role, MessageRole.system);
+      expect(system.content, startsWith('You are Bo.'));
+      expect(
+        system.content,
+        contains('speaking aloud in a live voice conversation'),
+      );
+    });
+
+    test('naturalSpeech adds audio-tag guidance only when the TTS supports '
+        'tags', () async {
+      final tagged = _Harness(naturalSpeech: true, ttsSupportsAudioTags: true);
+      await tagged.engine.startConversation();
+      await pump();
+      tagged.stt.emitFinal('hi');
+      await pump(3);
+      expect(tagged.llm.historySnapshots.single[0].content, contains('[laughs]'));
+
+      final plain = _Harness(naturalSpeech: true);
+      await plain.engine.startConversation();
+      await pump();
+      plain.stt.emitFinal('hi');
+      await pump(3);
+      expect(
+        plain.llm.historySnapshots.single[0].content,
+        isNot(contains('[laughs]')),
+      );
+    });
+
+    test('naturalSpeech off by default: system prompt is seeded verbatim',
+        () async {
+      final h = _Harness(systemPrompt: 'You are Bo.');
+      await h.engine.startConversation();
+      await pump();
+      h.stt.emitFinal('hi');
+      await pump(3);
+
+      expect(h.llm.historySnapshots.single[0].content, 'You are Bo.');
+    });
   });
 }

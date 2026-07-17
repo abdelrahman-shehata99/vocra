@@ -99,6 +99,58 @@ double-tapped mic button, before the first call's permission/audio-session
 setup has resolved) can't both slip past a "are we already started" check
 and run concurrently.
 
+## Why the greeting runs as a normal turn dispatched from `listening`
+
+`VoiceConfig.greeting` lets the assistant speak first. Rather than a special
+"greeting mode", it reuses the ordinary assistant-turn machinery
+(`_runAssistantTurn`), so a greeting gets sentence-splitting, streaming TTS,
+interim/final transcript events, metrics, and the history append for free —
+UIs render it exactly like any reply.
+
+Three constraints shaped where and how it runs:
+
+- **It runs *after* `mic.start()`, from `listening`.** `startConversation()`
+  finishes its normal setup (including transitioning to `listening`) and only
+  then dispatches the greeting, which transitions `listening → thinking →
+  speaking → listening`. It cannot run before the mic starts: in full-duplex,
+  `NativeAecMicSource.resume()` (called when the turn ends) only re-enables
+  forwarding — it can't *start* capture — so a greeting that ran before
+  `mic.start()` would leave the mic dead afterward.
+
+- **It's fire-and-forget (`unawaited`).** `VoiceSession.start()` marks itself
+  started only *after* `startConversation()` returns, and `stop()` no-ops while
+  not started. If `startConversation()` awaited the greeting, a `stop()` during
+  the greeting would be a dead no-op for the greeting's whole duration. So the
+  greeting is dispatched and `startConversation()` returns immediately — same
+  contract as `sendText()`.
+
+- **Generated greetings use an ephemeral instruction.** `Greeting.generated`
+  asks the LLM to open the conversation by appending a one-off *user* message
+  ("Greet the user…") to the prompt for that single call — never stored in
+  history. This keeps the prompt non-empty and user-first (Gemini rejects a
+  contents array that doesn't start with a user turn), while the generated
+  reply is appended to history like any assistant message. `Greeting.text`
+  skips the LLM entirely: its text is fed through the same pipeline as a
+  one-token stream.
+
+`VoiceEngine.speak(text)` exposes the same scripted-turn path for app-driven
+voiced utterances (notifications, tutorial prompts); `Greeting.text` is just
+`speak` run at startup.
+
+## TTS input normalization
+
+LLM replies contain markdown, emojis, and (when prompted for expressiveness)
+bracketed audio tags. `SpeechTextNormalizer` strips these from the text sent to
+TTS so they aren't read aloud, while **transcript events and history keep the
+original text** — the on-screen transcript still shows `**bold**`, only the
+spoken audio is cleaned. Normalization happens per sentence in
+`_runAssistantTurn`, and a sentence that normalizes to empty (e.g. an
+emoji-only fragment) is dropped *without* consuming an `AudioQueue` index, so
+the strictly-increasing index contract that keeps clips ordered is preserved.
+Audio tags are kept only when the active TTS advertises
+`TtsProvider.supportsAudioTags` (ElevenLabs `eleven_v3` family); otherwise they
+are stripped.
+
 ## Full-duplex / native AEC (spec §9, T18 — optional)
 
 `DuplexMode.fullDuplex` has two halves, verified to two different

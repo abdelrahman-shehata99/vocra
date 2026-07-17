@@ -1,6 +1,7 @@
 import '../providers/llm_provider.dart';
 import '../providers/stt_transport.dart';
 import '../providers/tts_provider.dart';
+import 'greeting.dart';
 
 /// Half-duplex (default, v1) suspends the mic while the AI speaks. Full
 /// duplex enables barge-in and requires native echo cancellation (spec §9).
@@ -23,6 +24,8 @@ class VoiceConfig {
     this.maxHistoryMessages = 20,
     this.duplex = DuplexMode.halfDuplex,
     this.sensitivity = BargeInSensitivity.balanced,
+    this.greeting,
+    this.naturalSpeech = false,
   });
 
   final LlmProvider llm;
@@ -43,4 +46,14 @@ class VoiceConfig {
 
   /// Only used when [duplex] is [DuplexMode.fullDuplex].
   final BargeInSensitivity sensitivity;
+
+  /// How the assistant opens the conversation. Null (the default) means the
+  /// user speaks first; set a [Greeting] to have the AI speak first.
+  final Greeting? greeting;
+
+  /// When true, augments [systemPrompt] with a voice-conversation style guide
+  /// (brief spoken replies, contractions, natural interjections, no markdown or
+  /// emojis) and — if the TTS supports them — light use of audio tags like
+  /// `[laughs]`. Default false: [systemPrompt] is used verbatim.
+  final bool naturalSpeech;
 }

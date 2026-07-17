@@ -6,6 +6,7 @@ export 'src/models/transcript_event.dart';
 export 'src/models/turn_metrics.dart';
 export 'src/models/voice_error.dart';
 export 'src/models/voice_config.dart';
+export 'src/models/greeting.dart';
 
 export 'src/io/audio_sink.dart';
 export 'src/io/mic_source.dart';
@@ -23,6 +24,7 @@ export 'src/providers/deepgram_stt.dart';
 export 'src/transport/sse_parser.dart';
 
 export 'src/engine/sentence_splitter.dart';
+export 'src/engine/speech_text_normalizer.dart';
 export 'src/engine/audio_queue.dart';
 export 'src/engine/turn_machine.dart';
 export 'src/engine/voice_engine.dart';
