@@ -37,6 +37,9 @@ export 'src/providers/gemini_llm.dart';
 export 'src/providers/deepgram_tts.dart';
 export 'src/providers/elevenlabs_tts.dart';
 export 'src/providers/deepgram_stt.dart';
+export 'src/providers/vocra_llm.dart';
+export 'src/providers/vocra_tts.dart';
+export 'src/providers/vocra_stt.dart';
 
 export 'src/transport/sse_parser.dart';
 
