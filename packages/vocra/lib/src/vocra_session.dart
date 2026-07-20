@@ -45,6 +45,11 @@ class VocraSession {
 
   Stream<TurnState> get turnState => _engine.turnState;
   Stream<TranscriptEvent> get transcripts => _engine.transcripts;
+
+  /// The aggregated conversation view — the full running list of user/assistant
+  /// messages, interims collapsed in place. Bind this to your transcript UI
+  /// instead of merging raw [transcripts] events yourself.
+  Stream<List<TranscriptEvent>> get messages => _engine.messages;
   Stream<TurnMetrics> get metrics => _engine.metrics;
 
   /// Engine errors plus session-level errors (e.g. permission denial) that

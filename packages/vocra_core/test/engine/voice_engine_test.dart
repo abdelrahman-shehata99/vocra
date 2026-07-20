@@ -4,58 +4,14 @@ import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:vocra_core/vocra_core.dart';
 
-import 'fakes.dart';
-
-Future<void> pump([int times = 1]) async {
-  for (var i = 0; i < times; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
-class _Harness {
-  _Harness({
-    int maxHistoryMessages = 20,
-    DuplexMode duplex = DuplexMode.halfDuplex,
-    BargeInSensitivity sensitivity = BargeInSensitivity.balanced,
-    Greeting? greeting,
-    bool naturalSpeech = false,
-    String systemPrompt = 'You are a helpful assistant.',
-    bool ttsSupportsAudioTags = false,
-  }) : mic = FakeMicSource(),
-       stt = FakeSttTransport(),
-       llm = FakeLlmProvider(),
-       tts = FakeTtsProvider(),
-       sink = FakeAudioSink() {
-    tts.supportsAudioTags = ttsSupportsAudioTags;
-    config = VocraConfig(
-      llm: llm,
-      tts: tts,
-      stt: stt,
-      systemPrompt: systemPrompt,
-      maxHistoryMessages: maxHistoryMessages,
-      duplex: duplex,
-      sensitivity: sensitivity,
-      greeting: greeting,
-      naturalSpeech: naturalSpeech,
-    );
-    engine = VoiceEngine(config, audioSink: sink, mic: mic);
-  }
-
-  final FakeMicSource mic;
-  final FakeSttTransport stt;
-  final FakeLlmProvider llm;
-  final FakeTtsProvider tts;
-  final FakeAudioSink sink;
-  late final VocraConfig config;
-  late final VoiceEngine engine;
-}
+import 'harness.dart';
 
 void main() {
   group('VoiceEngine', () {
     test(
       'full turn: listening -> thinking -> speaking -> listening, with metrics and history growth',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final states = <TurnState>[];
         h.engine.turnState.listen(states.add);
         final metricsList = <TurnMetrics>[];
@@ -116,7 +72,7 @@ void main() {
     test(
       'mic audio is never forwarded to STT while thinking or speaking (R7)',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final speakingReached = Completer<void>();
         h.engine.turnState.listen((s) {
           if (s == TurnState.speaking && !speakingReached.isCompleted) {
@@ -159,7 +115,7 @@ void main() {
     );
 
     test('sendText starts a turn directly, bypassing STT', () async {
-      final h = _Harness();
+      final h = Harness();
       final userEvents = <TranscriptEvent>[];
       h.engine.transcripts.listen((e) {
         if (e.source == TranscriptSource.user) userEvents.add(e);
@@ -185,9 +141,46 @@ void main() {
     });
 
     test(
+      'messages emits the aggregated conversation on every transcript event',
+      () async {
+        final h = Harness();
+        final snapshots = <List<TranscriptEvent>>[];
+        h.engine.messages.listen(snapshots.add);
+
+        await h.engine.startConversation();
+        await pump();
+
+        // A user turn with two interims then a final, then an assistant reply.
+        h.stt.emitInterim('hel');
+        h.stt.emitInterim('hello');
+        h.stt.emitFinal('hello there');
+        await pump(5);
+        h.llm.pushToken('Hi! ');
+        await h.llm.endStream();
+        await pump(30);
+
+        expect(snapshots, isNotEmpty);
+        final latest = snapshots.last;
+        // Interims collapsed: exactly one user bubble (final) + one assistant.
+        expect(
+          latest.where((e) => e.source == TranscriptSource.user),
+          hasLength(1),
+        );
+        expect(latest.first.text, 'hello there');
+        expect(latest.first.isFinal, isTrue);
+        expect(
+          latest.any(
+            (e) => e.source == TranscriptSource.assistant && e.isFinal,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
       'typed input works with no mic conversation and rests at idle',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final states = <TurnState>[];
         h.engine.turnState.listen(states.add);
 
@@ -220,7 +213,7 @@ void main() {
     test(
       'interrupt() cancels the in-flight turn and returns to listening',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final states = <TurnState>[];
         h.engine.turnState.listen(states.add);
 
@@ -243,7 +236,7 @@ void main() {
     test(
       'history trims oldest non-system messages, keeping the system prompt',
       () async {
-        final h = _Harness(maxHistoryMessages: 3);
+        final h = Harness(maxHistoryMessages: 3);
         await h.engine.startConversation();
 
         Future<void> runTurn(String userText, String replyToken) async {
@@ -267,7 +260,7 @@ void main() {
     test(
       'an LLM error is surfaced on errors and the engine returns to listening',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final states = <TurnState>[];
         h.engine.turnState.listen(states.add);
         final errors = <VoiceError>[];
@@ -289,7 +282,7 @@ void main() {
       'assistant text streams as cumulative interim transcripts (word-by-word '
       'UI rendering), then one final with the complete text',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final assistantEvents = <TranscriptEvent>[];
         h.engine.transcripts.listen((e) {
           if (e.source == TranscriptSource.assistant) assistantEvents.add(e);
@@ -319,7 +312,7 @@ void main() {
     );
 
     test('a dropped STT connection is surfaced on errors', () async {
-      final h = _Harness();
+      final h = Harness();
       final errors = <VoiceError>[];
       h.engine.errors.listen(errors.add);
 
@@ -336,7 +329,7 @@ void main() {
       'a mic that fails to resume after a turn surfaces a ProviderError '
       'instead of crashing (turn-drain resume runs fire-and-forget)',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final errors = <VoiceError>[];
         h.engine.errors.listen(errors.add);
         final states = <TurnState>[];
@@ -362,7 +355,7 @@ void main() {
     );
 
     test('stopConversation tears everything down and goes idle', () async {
-      final h = _Harness();
+      final h = Harness();
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -378,7 +371,7 @@ void main() {
     test(
       'a failed TTS clip does not hang the turn: it still drains and resumes',
       () async {
-        final h = _Harness();
+        final h = Harness();
         // Second sentence's synthesis fails (e.g. a 429); the first and
         // third succeed. The turn must still complete and return to
         // listening rather than stalling in speaking forever.
@@ -416,7 +409,7 @@ void main() {
 
   group('VoiceEngine full-duplex (spec §9)', () {
     test('never pauses the mic, unlike half-duplex', () async {
-      final h = _Harness(duplex: DuplexMode.fullDuplex);
+      final h = Harness(duplex: DuplexMode.fullDuplex);
 
       await h.engine.startConversation();
       h.stt.emitFinal('go');
@@ -432,7 +425,7 @@ void main() {
     });
 
     test('mic audio keeps reaching STT while the AI is speaking', () async {
-      final h = _Harness(duplex: DuplexMode.fullDuplex);
+      final h = Harness(duplex: DuplexMode.fullDuplex);
       final speakingReached = Completer<void>();
       h.engine.turnState.listen((s) {
         if (s == TurnState.speaking && !speakingReached.isCompleted) {
@@ -457,7 +450,7 @@ void main() {
     test(
       'a long interim transcript while speaking triggers a barge-in interrupt',
       () async {
-        final h = _Harness(
+        final h = Harness(
           duplex: DuplexMode.fullDuplex,
           sensitivity: BargeInSensitivity.balanced, // threshold: 12 chars
         );
@@ -492,7 +485,7 @@ void main() {
     test(
       'a short interim transcript while speaking does not interrupt',
       () async {
-        final h = _Harness(
+        final h = Harness(
           duplex: DuplexMode.fullDuplex,
           sensitivity: BargeInSensitivity.relaxed, // threshold: 20 chars
         );
@@ -521,7 +514,7 @@ void main() {
   group('VoiceEngine greeting', () {
     test('Greeting.text speaks first: thinking -> speaking -> listening before '
         'any user input, and the text reaches TTS', () async {
-      final h = _Harness(greeting: const Greeting.text('Hey there!'));
+      final h = Harness(greeting: const Greeting.text('Hey there!'));
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -543,7 +536,7 @@ void main() {
       'Greeting.text emits assistant transcripts and appends the greeting to '
       'history as an assistant message',
       () async {
-        final h = _Harness(greeting: const Greeting.text('Hey there!'));
+        final h = Harness(greeting: const Greeting.text('Hey there!'));
         final transcripts = <TranscriptEvent>[];
         h.engine.transcripts.listen(transcripts.add);
 
@@ -575,7 +568,7 @@ void main() {
 
     test('Greeting.text pauses the mic while greeting, then resumes '
         '(half-duplex R7)', () async {
-      final h = _Harness(greeting: const Greeting.text('Hey there!'));
+      final h = Harness(greeting: const Greeting.text('Hey there!'));
 
       await h.engine.startConversation();
       await pump(30);
@@ -586,7 +579,7 @@ void main() {
 
     test('Greeting.generated sends an ephemeral user instruction that is never '
         'stored in history', () async {
-      final h = _Harness(greeting: const Greeting.generated());
+      final h = Harness(greeting: const Greeting.generated());
 
       await h.engine.startConversation();
       await pump(5);
@@ -621,7 +614,7 @@ void main() {
     test(
       'Greeting.generated uses a custom instruction when provided',
       () async {
-        final h = _Harness(
+        final h = Harness(
           greeting: const Greeting.generated(instruction: 'Say hi in French.'),
         );
 
@@ -634,7 +627,7 @@ void main() {
     );
 
     test('no greeting configured leaves startConversation unchanged', () async {
-      final h = _Harness();
+      final h = Harness();
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -648,7 +641,7 @@ void main() {
 
     test('startConversation returns without waiting for the greeting to '
         'finish', () async {
-      final h = _Harness(greeting: const Greeting.generated());
+      final h = Harness(greeting: const Greeting.generated());
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -662,7 +655,7 @@ void main() {
     });
 
     test('stopConversation during the greeting settles at idle', () async {
-      final h = _Harness(greeting: const Greeting.generated());
+      final h = Harness(greeting: const Greeting.generated());
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -678,7 +671,7 @@ void main() {
     });
 
     test('interrupt during the greeting returns to listening', () async {
-      final h = _Harness(greeting: const Greeting.generated());
+      final h = Harness(greeting: const Greeting.generated());
       final states = <TurnState>[];
       h.engine.turnState.listen(states.add);
 
@@ -696,7 +689,7 @@ void main() {
     test(
       'full-duplex: a long interim during the greeting barges in and cancels it',
       () async {
-        final h = _Harness(
+        final h = Harness(
           duplex: DuplexMode.fullDuplex,
           greeting: const Greeting.generated(),
         );
@@ -723,7 +716,7 @@ void main() {
     test(
       'speak() runs a scripted assistant turn through TTS and history',
       () async {
-        final h = _Harness();
+        final h = Harness();
         await h.engine.startConversation();
         await pump();
 
@@ -747,7 +740,7 @@ void main() {
     );
 
     test('speak() while a turn is in flight is dropped', () async {
-      final h = _Harness();
+      final h = Harness();
       await h.engine.startConversation();
       await pump();
 
@@ -763,7 +756,7 @@ void main() {
   });
 
   group('VoiceEngine natural speech and normalization', () {
-    Future<void> runOneReply(_Harness h, List<String> tokens) async {
+    Future<void> runOneReply(Harness h, List<String> tokens) async {
       await h.engine.startConversation();
       await pump();
       h.stt.emitFinal('hi');
@@ -778,7 +771,7 @@ void main() {
     test(
       'TTS input is normalized while transcripts keep the original text',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final transcripts = <TranscriptEvent>[];
         h.engine.transcripts.listen(transcripts.add);
 
@@ -797,7 +790,7 @@ void main() {
       'a trailing sentence that normalizes to nothing consumes no AudioQueue '
       'index and the turn still drains',
       () async {
-        final h = _Harness();
+        final h = Harness();
         final states = <TurnState>[];
         h.engine.turnState.listen(states.add);
 
@@ -815,11 +808,11 @@ void main() {
       'audio tags are stripped for a TTS without tag support and kept for one '
       'with it',
       () async {
-        final without = _Harness();
+        final without = Harness();
         await runOneReply(without, ['Sure [laughs] ', 'okay then!']);
         expect(without.tts.synthesizedText, contains('Sure okay then!'));
 
-        final with_ = _Harness(ttsSupportsAudioTags: true);
+        final with_ = Harness(ttsSupportsAudioTags: true);
         await runOneReply(with_, ['Sure [laughs] ', 'okay then!']);
         expect(with_.tts.synthesizedText, contains('Sure [laughs] okay then!'));
       },
@@ -827,7 +820,7 @@ void main() {
 
     test('naturalSpeech augments the seeded system prompt with the voice-style '
         'preamble', () async {
-      final h = _Harness(naturalSpeech: true, systemPrompt: 'You are Bo.');
+      final h = Harness(naturalSpeech: true, systemPrompt: 'You are Bo.');
       await h.engine.startConversation();
       await pump();
       h.stt.emitFinal('hi');
@@ -844,7 +837,7 @@ void main() {
 
     test('naturalSpeech adds audio-tag guidance only when the TTS supports '
         'tags', () async {
-      final tagged = _Harness(naturalSpeech: true, ttsSupportsAudioTags: true);
+      final tagged = Harness(naturalSpeech: true, ttsSupportsAudioTags: true);
       await tagged.engine.startConversation();
       await pump();
       tagged.stt.emitFinal('hi');
@@ -854,7 +847,7 @@ void main() {
         contains('[laughs]'),
       );
 
-      final plain = _Harness(naturalSpeech: true);
+      final plain = Harness(naturalSpeech: true);
       await plain.engine.startConversation();
       await pump();
       plain.stt.emitFinal('hi');
@@ -868,7 +861,7 @@ void main() {
     test(
       'naturalSpeech off by default: system prompt is seeded verbatim',
       () async {
-        final h = _Harness(systemPrompt: 'You are Bo.');
+        final h = Harness(systemPrompt: 'You are Bo.');
         await h.engine.startConversation();
         await pump();
         h.stt.emitFinal('hi');

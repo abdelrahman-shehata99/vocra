@@ -38,6 +38,7 @@ export 'src/transport/sse_parser.dart';
 
 export 'src/engine/sentence_splitter.dart';
 export 'src/engine/speech_text_normalizer.dart';
+export 'src/engine/transcript_aggregator.dart';
 export 'src/engine/audio_queue.dart';
 export 'src/engine/turn_machine.dart';
 export 'src/engine/voice_engine.dart';

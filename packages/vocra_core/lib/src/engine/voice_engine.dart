@@ -16,6 +16,7 @@ import '../util/cancellation.dart';
 import 'audio_queue.dart';
 import 'sentence_splitter.dart';
 import 'speech_text_normalizer.dart';
+import 'transcript_aggregator.dart';
 import 'turn_machine.dart';
 
 /// The pure-Dart orchestrator that wires STT, the LLM, TTS, and ordered
@@ -54,10 +55,16 @@ class VoiceEngine {
 
   final StreamController<TranscriptEvent> _transcriptsController =
       StreamController<TranscriptEvent>.broadcast();
+  final StreamController<List<TranscriptEvent>> _messagesController =
+      StreamController<List<TranscriptEvent>>.broadcast();
   final StreamController<TurnMetrics> _metricsController =
       StreamController<TurnMetrics>.broadcast();
   final StreamController<VoiceError> _errorsController =
       StreamController<VoiceError>.broadcast();
+
+  /// Collapses raw interim/final events into the running conversation view
+  /// emitted on [messages].
+  final TranscriptAggregator _aggregator = TranscriptAggregator();
 
   StreamSubscription<dynamic>? _micSub;
   StreamSubscription<TranscriptEvent>? _sttSub;
@@ -77,8 +84,22 @@ class VoiceEngine {
 
   Stream<TurnState> get turnState => _turnMachine.stream;
   Stream<TranscriptEvent> get transcripts => _transcriptsController.stream;
+
+  /// The aggregated conversation view: emits the full running list of
+  /// user/assistant messages (interims collapsed in place — see
+  /// [TranscriptAggregator]) on every change. Most UIs bind to this instead of
+  /// the raw [transcripts] events. Broadcast, so new listeners see the next
+  /// change; seed the initial list from [transcripts] or an empty list.
+  Stream<List<TranscriptEvent>> get messages => _messagesController.stream;
   Stream<TurnMetrics> get metrics => _metricsController.stream;
   Stream<VoiceError> get errors => _errorsController.stream;
+
+  /// The single funnel for every transcript event: emits the raw event on
+  /// [transcripts] and the updated aggregated list on [messages].
+  void _emitTranscript(TranscriptEvent event) {
+    _transcriptsController.add(event);
+    _messagesController.add(_aggregator.add(event));
+  }
 
   bool get _isHalfDuplex => _config.duplex == DuplexMode.halfDuplex;
 
@@ -243,7 +264,7 @@ class VoiceEngine {
     // A spoken turn's user text reaches [transcripts] via STT; typed input
     // has no STT leg, so emit the equivalent final user event here — the
     // transcript stream is the full conversation record either way.
-    _transcriptsController.add(
+    _emitTranscript(
       TranscriptEvent(source: TranscriptSource.user, text: text, isFinal: true),
     );
     unawaited(_beginTurn(text));
@@ -295,12 +316,13 @@ class VoiceEngine {
     await _audioQueue.dispose();
     await _turnMachine.dispose();
     await _transcriptsController.close();
+    await _messagesController.close();
     await _metricsController.close();
     await _errorsController.close();
   }
 
   void _onSttTranscript(TranscriptEvent event) {
-    _transcriptsController.add(event);
+    _emitTranscript(event);
 
     // Full-duplex barge-in (spec §9): the mic was never paused, so real
     // speech arriving while the AI is talking means the user cut in.
@@ -427,7 +449,7 @@ class VoiceEngine {
         // being spoken, mirroring user-side interims. The final event with
         // the complete text still fires when the turn drains. Transcripts keep
         // the ORIGINAL text; only the TTS input is normalized.
-        _transcriptsController.add(
+        _emitTranscript(
           TranscriptEvent(
             source: TranscriptSource.assistant,
             text: assistantText.toString(),
@@ -504,7 +526,7 @@ class VoiceEngine {
     final text = _assistantText?.toString() ?? '';
     if (text.isNotEmpty) {
       _addToHistory(ChatMessage(role: MessageRole.assistant, content: text));
-      _transcriptsController.add(
+      _emitTranscript(
         TranscriptEvent(
           source: TranscriptSource.assistant,
           text: text,
