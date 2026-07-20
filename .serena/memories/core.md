@@ -4,10 +4,10 @@ monorepo, two packages: `mem:vocra_core/core` (pure-Dart engine, no Flutter impo
 
 Root layout:
 - `packages/vocra_core/` — engine, provider adapters, transport (see `mem:vocra_core/core`)
-- `packages/vocra/` — mic/audio/permissions/VoiceSession + `example/` demo app
+- `packages/vocra/` — mic/audio/permissions/VocraSession + `example/` demo app
 - `docs/ARCHITECTURE.md` — design rationale for non-obvious deviations from the build spec
   (turn-state machine transitions, AudioQueue contract extensions, Deepgram speech_final vs
-  is_final, VoiceSession re-entrancy guards, full-duplex/native AEC). Read before touching
+  is_final, VocraSession re-entrancy guards, full-duplex/native AEC). Read before touching
   turn-state, audio queue ordering, or duplex-mode logic — don't rediscover this from code.
 
 Project-wide invariants:

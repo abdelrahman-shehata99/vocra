@@ -54,7 +54,7 @@ surface.
 ## Extending with a new provider
 
 Implement `LlmProvider`, `TtsProvider`, or `SttTransport` and pass it into
-`VoiceConfig`. `VoiceEngine` depends only on these abstractions, so a new
+`VocraConfig`. `VoiceEngine` depends only on these abstractions, so a new
 provider needs no engine changes.
 
 ## Testing

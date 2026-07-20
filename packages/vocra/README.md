@@ -11,7 +11,7 @@ Each app supplies its own provider API keys.
 This package adds microphone capture, ordered audio playback, permissions, and
 audio-session handling on top of the pure-Dart
 [`vocra_core`](https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_core)
-engine (which it re-exports, so one import is enough). `VoiceSession` is the
+engine (which it re-exports, so one import is enough). `VocraSession` is the
 single class most apps touch.
 
 - **Providers:** Groq or Gemini for the LLM; Deepgram or ElevenLabs for TTS;
@@ -66,8 +66,8 @@ automatically — no Podfile macros or Gradle changes needed.
 ```dart
 import 'package:vocra_flutter/vocra_flutter.dart';
 
-final session = VoiceSession(
-  config: VoiceConfig(
+final session = VocraSession(
+  config: VocraConfig(
     llm: GroqLlm(apiKey: groqKey),
     stt: DeepgramStt(apiKey: deepgramKey),
     tts: DeepgramTts(apiKey: deepgramKey),

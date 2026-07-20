@@ -31,8 +31,8 @@ flutter pub add vocra
 ```dart
 import 'package:vocra/vocra.dart';
 
-final session = VoiceSession(
-  config: VoiceConfig(
+final session = VocraSession(
+  config: VocraConfig(
     llm: GroqLlm(apiKey: groqKey),
     stt: DeepgramStt(apiKey: deepgramKey),
     tts: DeepgramTts(apiKey: deepgramKey),
@@ -58,7 +58,7 @@ A [melos](https://melos.invertase.dev) monorepo using Dart's native
 ```
 packages/
   vocra_core/      pure-Dart engine, provider adapters, transport — no Flutter import
-  vocra/   Flutter plugin layer: mic, audio playback, permissions, VoiceSession
+  vocra/   Flutter plugin layer: mic, audio playback, permissions, VocraSession
     example/       runnable demo app
 ```
 

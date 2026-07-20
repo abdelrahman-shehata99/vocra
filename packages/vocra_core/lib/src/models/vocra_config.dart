@@ -12,9 +12,9 @@ enum DuplexMode { halfDuplex, fullDuplex }
 enum BargeInSensitivity { relaxed, balanced, eager }
 
 /// The consumer-facing config object (spec §4). Constructed once by the app
-/// and passed to `VoiceSession`/`VoiceEngine`.
-class VoiceConfig {
-  const VoiceConfig({
+/// and passed to `VocraSession`/`VoiceEngine`.
+class VocraConfig {
+  const VocraConfig({
     required this.llm,
     required this.tts,
     required this.stt,

@@ -4,7 +4,7 @@ import 'package:audio_session/audio_session.dart';
 /// §8.3): category `playAndRecord`, mode `voiceChat`, default to speaker,
 /// allow Bluetooth. Exposes interruption (phone call) and route-change
 /// (headphones/AirPods unplugged) events for the caller — typically
-/// [VoiceSession] — to react to by pausing/resuming the conversation.
+/// [VocraSession] — to react to by pausing/resuming the conversation.
 class AudioSessionSetup {
   AudioSessionSetup._(this._session);
 

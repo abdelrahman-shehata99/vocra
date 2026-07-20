@@ -7,10 +7,10 @@ import 'package:vocra_core/vocra_core.dart';
 /// T18): mono 16 kHz PCM16 capture with hardware echo cancellation, for use
 /// with [DuplexMode.fullDuplex].
 ///
-/// Check [isAvailable] before constructing a [VoiceConfig] with
+/// Check [isAvailable] before constructing a [VocraConfig] with
 /// [DuplexMode.fullDuplex] and this mic source — per the spec, half-duplex
 /// with [FlutterMicSource] is the fallback when AEC isn't available, and
-/// that fallback decision belongs to the app/`VoiceSession`, not this
+/// that fallback decision belongs to the app/`VocraSession`, not this
 /// class.
 ///
 /// This talks to native Swift (`ios/Classes/AecAudioEngine.swift`) and

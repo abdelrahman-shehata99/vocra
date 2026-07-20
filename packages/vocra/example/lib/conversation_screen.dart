@@ -8,14 +8,14 @@ import 'package:vocra/vocra.dart';
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key, required this.config});
 
-  final VoiceConfig config;
+  final VocraConfig config;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
 class _ConversationScreenState extends State<ConversationScreen> {
-  late VoiceSession _session;
+  late VocraSession _session;
 
   TurnState _turnState = TurnState.idle;
   final List<TranscriptEvent> _transcript = [];
@@ -34,11 +34,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
-    _session = VoiceSession(config: widget.config);
+    _session = VocraSession(config: widget.config);
     _wire(_session);
   }
 
-  void _wire(VoiceSession session) {
+  void _wire(VocraSession session) {
     _turnStateSub = session.turnState.listen((s) {
       if (!mounted) return;
       setState(() => _turnState = s);
@@ -99,7 +99,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     await _metricsSub?.cancel();
     await _errorsSub?.cancel();
 
-    final freshSession = VoiceSession(config: widget.config);
+    final freshSession = VocraSession(config: widget.config);
     setState(() {
       _session = freshSession;
       _transcript.clear();

@@ -8,7 +8,7 @@
   turn state from anywhere else, even for edge cases — see `mem:core` -> ARCHITECTURE.md for
   how the empty-reply edge case is handled without adding a new illegal transition.
   invariants documented in ARCHITECTURE.md when extending them.
-- Re-entrancy guards (e.g. `VoiceSession.start`/`stop`) set their guard flag synchronously
+- Re-entrancy guards (e.g. `VocraSession.start`/`stop`) set their guard flag synchronously
   before the first `await`, specifically to close races from rapid double-calls (e.g.
   double-tapped UI button). Follow this pattern for any new start/stop-style guarded method.
 - Tests: `test` package for vocra_core (mocktail for mocking, `stream_channel` /

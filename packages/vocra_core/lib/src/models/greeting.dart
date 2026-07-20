@@ -1,6 +1,6 @@
 /// How (and whether) the assistant speaks first when a conversation starts.
 ///
-/// A null [VoiceConfig.greeting] (the default) keeps the current behavior: the
+/// A null [VocraConfig.greeting] (the default) keeps the current behavior: the
 /// session opens in `listening` and the user speaks first. Set a [Greeting] to
 /// have the assistant open the conversation instead.
 sealed class Greeting {

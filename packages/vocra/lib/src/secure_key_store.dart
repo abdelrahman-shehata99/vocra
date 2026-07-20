@@ -4,7 +4,7 @@ import 'package:vocra_core/vocra_core.dart';
 /// Persists provider API keys in platform-secure storage via
 /// `flutter_secure_storage` — Keychain on iOS, Keystore on Android.
 ///
-/// This is optional: [VoiceConfig] takes provider instances directly, so an
+/// This is optional: [VocraConfig] takes provider instances directly, so an
 /// app can source keys however it likes (a backend, `--dart-define`, etc.).
 /// Use [SecureKeyStore] when you want to cache user-entered keys on-device
 /// between launches. Pick stable, app-unique [name]s for each key (e.g.

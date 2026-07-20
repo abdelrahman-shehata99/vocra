@@ -6,7 +6,7 @@
 /// apps should depend on `vocra_flutter`, which wires this engine to the
 /// microphone, audio playback, and permissions.
 ///
-/// The entry points are [VoiceEngine] (the orchestrator) and [VoiceConfig]
+/// The entry points are [VoiceEngine] (the orchestrator) and [VocraConfig]
 /// (the config surface). Providers are pluggable behind three interfaces —
 /// [LlmProvider], [SttTransport], and [TtsProvider] — with Groq/Gemini (LLM)
 /// and Deepgram/ElevenLabs (STT/TTS) adapters included. Every provider and
@@ -18,7 +18,7 @@ export 'src/models/turn_state.dart';
 export 'src/models/transcript_event.dart';
 export 'src/models/turn_metrics.dart';
 export 'src/models/voice_error.dart';
-export 'src/models/voice_config.dart';
+export 'src/models/vocra_config.dart';
 export 'src/models/greeting.dart';
 
 export 'src/io/audio_sink.dart';

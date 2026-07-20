@@ -91,9 +91,9 @@ unexpectedly mid-conversation from Deepgram, both surface as a typed
 `groq_llm_test.dart`'s *"maps a connection drop mid-stream..."* test and
 `deepgram_stt_test.dart`'s connection-error tests.
 
-## `VoiceSession` re-entrancy
+## `VocraSession` re-entrancy
 
-`VoiceSession.start()`/`stop()` each set a guard flag *synchronously*,
+`VocraSession.start()`/`stop()` each set a guard flag *synchronously*,
 before their first `await`, specifically so that two rapid calls (e.g. a
 double-tapped mic button, before the first call's permission/audio-session
 setup has resolved) can't both slip past a "are we already started" check
@@ -101,7 +101,7 @@ and run concurrently.
 
 ## Why the greeting runs as a normal turn dispatched from `listening`
 
-`VoiceConfig.greeting` lets the assistant speak first. Rather than a special
+`VocraConfig.greeting` lets the assistant speak first. Rather than a special
 "greeting mode", it reuses the ordinary assistant-turn machinery
 (`_runAssistantTurn`), so a greeting gets sentence-splitting, streaming TTS,
 interim/final transcript events, metrics, and the history append for free —
@@ -117,7 +117,7 @@ Three constraints shaped where and how it runs:
   forwarding — it can't *start* capture — so a greeting that ran before
   `mic.start()` would leave the mic dead afterward.
 
-- **It's fire-and-forget (`unawaited`).** `VoiceSession.start()` marks itself
+- **It's fire-and-forget (`unawaited`).** `VocraSession.start()` marks itself
   started only *after* `startConversation()` returns, and `stop()` no-ops while
   not started. If `startConversation()` awaited the greeting, a `stop()` during
   the greeting would be a dead no-op for the greeting's whole duration. So the
@@ -176,8 +176,8 @@ standards:
   native AEC actually working, full-duplex would have the AI interrupt
   itself almost immediately.
 
-  `NativeAecMicSource.isAvailable()` lets `VoiceSession` (and apps) check
-  support before committing to full-duplex; `VoiceSession.start()` emits a
+  `NativeAecMicSource.isAvailable()` lets `VocraSession` (and apps) check
+  support before committing to full-duplex; `VocraSession.start()` emits a
   `ConfigError` and refuses to start rather than silently falling back if
   full-duplex was requested but AEC isn't available — silently downgrading
   to half-duplex would mean an app's `DuplexMode.fullDuplex` config
@@ -193,7 +193,7 @@ standards:
 
 **If you pick this up to validate on a device:** half-duplex (the default)
 needs no native AEC and is unaffected by any of this. To exercise
-full-duplex, set `VoiceConfig(duplex: DuplexMode.fullDuplex, ...)`, confirm
+full-duplex, set `VocraConfig(duplex: DuplexMode.fullDuplex, ...)`, confirm
 `NativeAecMicSource.isAvailable()` returns `true` on your test device, and
 listen for the AI talking over itself — that's the signal AEC isn't
 actually cancelling the echo.

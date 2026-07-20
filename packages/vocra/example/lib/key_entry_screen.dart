@@ -150,7 +150,7 @@ class _KeyEntryScreenState extends State<KeyEntryScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ConversationScreen(
-          config: VoiceConfig(
+          config: VocraConfig(
             llm: GroqLlm(apiKey: groqKey),
             tts: DeepgramTts(apiKey: deepgramKey),
             stt: DeepgramStt(apiKey: deepgramKey),

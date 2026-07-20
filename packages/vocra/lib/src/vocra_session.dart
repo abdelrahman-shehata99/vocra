@@ -13,8 +13,8 @@ import 'native_aec_mic_source.dart';
 /// the concrete Flutter implementations and a [VoiceEngine], runs
 /// permission + audio-session setup, and re-exposes the engine's streams
 /// and methods.
-class VoiceSession {
-  VoiceSession({required VoiceConfig config})
+class VocraSession {
+  VocraSession({required VocraConfig config})
     : _config = config,
       _mic = config.duplex == DuplexMode.fullDuplex
           ? NativeAecMicSource()
@@ -25,7 +25,7 @@ class VoiceSession {
     _engineErrorsSub = _engine.errors.listen(_errorsController.add);
   }
 
-  final VoiceConfig _config;
+  final VocraConfig _config;
   final MicSource _mic;
   final FlutterAudioSink _sink;
   final MicPermission _micPermission;

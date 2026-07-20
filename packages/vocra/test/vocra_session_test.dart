@@ -53,8 +53,8 @@ class _NoopStt implements SttTransport {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  VoiceSession buildSession() => VoiceSession(
-    config: VoiceConfig(
+  VocraSession buildSession() => VocraSession(
+    config: VocraConfig(
       llm: _NoopLlm(),
       tts: _NoopTts(),
       stt: _NoopStt(),
@@ -62,14 +62,14 @@ void main() {
     ),
   );
 
-  // VoiceSession builds a real FlutterMicSource (record's AudioRecorder) in its
+  // VocraSession builds a real FlutterMicSource (record's AudioRecorder) in its
   // constructor, which calls the record plugin channel. Stub it so construction
   // works headless; the re-entrancy guard is what's under test here.
   const recordChannel = MethodChannel('com.llfbandit.record/messages');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-  group('VoiceSession.start re-entrancy', () {
+  group('VocraSession.start re-entrancy', () {
     late _MockPermissionHandler permissions;
 
     setUp(() {

@@ -7,8 +7,8 @@
 /// ```dart
 /// import 'package:vocra/vocra.dart';
 ///
-/// final session = VoiceSession(
-///   config: VoiceConfig(
+/// final session = VocraSession(
+///   config: VocraConfig(
 ///     llm: GroqLlm(apiKey: groqKey),
 ///     stt: DeepgramStt(apiKey: deepgramKey),
 ///     tts: DeepgramTts(apiKey: deepgramKey),
@@ -20,9 +20,9 @@
 /// await session.start();
 /// ```
 ///
-/// [VoiceSession] is the app-facing entry point. Add the platform microphone
+/// [VocraSession] is the app-facing entry point. Add the platform microphone
 /// permission strings (iOS `NSMicrophoneUsageDescription`, Android
-/// `RECORD_AUDIO`) as described in the README before calling [VoiceSession.start].
+/// `RECORD_AUDIO`) as described in the README before calling [VocraSession.start].
 library;
 
 export 'package:vocra_core/vocra_core.dart';
@@ -33,4 +33,4 @@ export 'src/native_aec_mic_source.dart';
 export 'src/secure_key_store.dart';
 export 'src/audio_session_setup.dart';
 export 'src/mic_permission.dart';
-export 'src/voice_session.dart';
+export 'src/vocra_session.dart';

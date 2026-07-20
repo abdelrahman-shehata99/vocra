@@ -54,7 +54,7 @@ Future<void> main() async {
   final groqKey = Platform.environment['GROQ_API_KEY'];
   final deepgramKey = Platform.environment['DEEPGRAM_API_KEY'];
 
-  final config = VoiceConfig(
+  final config = VocraConfig(
     llm: GroqLlm(apiKey: groqKey ?? 'missing'),
     stt: DeepgramStt(apiKey: deepgramKey ?? 'missing'),
     tts: DeepgramTts(apiKey: deepgramKey ?? 'missing'),

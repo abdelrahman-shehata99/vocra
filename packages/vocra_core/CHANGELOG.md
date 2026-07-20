@@ -5,9 +5,9 @@
 First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 
 ### Added
-- `VoiceConfig.greeting` (`Greeting.text` / `Greeting.generated`) so the
+- `VocraConfig.greeting` (`Greeting.text` / `Greeting.generated`) so the
   assistant can speak first when a conversation starts.
-- `VoiceConfig.naturalSpeech`: augments the system prompt with a live-voice
+- `VocraConfig.naturalSpeech`: augments the system prompt with a live-voice
   style guide (brief spoken replies, contractions, no markdown/emojis), plus
   light audio-tag guidance when the TTS supports tags.
 - `SpeechTextNormalizer`: strips markdown, emojis, and unsupported audio tags

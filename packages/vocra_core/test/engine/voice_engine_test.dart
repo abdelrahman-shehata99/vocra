@@ -27,7 +27,7 @@ class _Harness {
        tts = FakeTtsProvider(),
        sink = FakeAudioSink() {
     tts.supportsAudioTags = ttsSupportsAudioTags;
-    config = VoiceConfig(
+    config = VocraConfig(
       llm: llm,
       tts: tts,
       stt: stt,
@@ -46,7 +46,7 @@ class _Harness {
   final FakeLlmProvider llm;
   final FakeTtsProvider tts;
   final FakeAudioSink sink;
-  late final VoiceConfig config;
+  late final VocraConfig config;
   late final VoiceEngine engine;
 }
 

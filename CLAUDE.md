@@ -44,12 +44,12 @@ packages/
 │       ├── engine/      # VoiceEngine (orchestrator), TurnMachine, AudioQueue, SentenceSplitter
 │       ├── providers/   # GroqLlm, DeepgramStt, DeepgramTts + Llm/Stt/Tts interfaces
 │       ├── io/           # AudioSink / MicSource / KeyStore interfaces (implemented in vocra)
-│       ├── models/       # VoiceConfig, VoiceError, TurnState, TurnMetrics, ChatMessage, TranscriptEvent
+│       ├── models/       # VocraConfig, VoiceError, TurnState, TurnMetrics, ChatMessage, TranscriptEvent
 │       ├── transport/    # SseParser (Groq streaming)
 │       └── util/         # Cancellation
-└── vocra/   # Flutter plugin layer: mic, audio playback, permissions, VoiceSession
+└── vocra/   # Flutter plugin layer: mic, audio playback, permissions, VocraSession
     ├── lib/src/          # FlutterMicSource, FlutterAudioSink, NativeAecMicSource, SecureKeyStore,
-    │                     # AudioSessionSetup, MicPermission, VoiceSession (app-facing API)
+    │                     # AudioSessionSetup, MicPermission, VocraSession (app-facing API)
     ├── ios/Classes/      # AecAudioEngine.swift (native echo cancellation, optional full-duplex)
     ├── android/          # AecAudioRecorder.kt equivalent (same purpose)
     └── example/          # runnable demo app + manual test harness (key entry → conversation screen)
@@ -72,12 +72,12 @@ packages/
 - Providers (`LlmProvider`, `TtsProvider`, `SttTransport`) are pluggable interfaces — current
   concrete impls are Groq (LLM) and Deepgram (STT+TTS) only. New providers implement the
   interface; nothing in the engine should assume Groq/Deepgram specifics.
-- `VoiceSession.start()` / `stop()` each set a re-entrancy guard flag **synchronously, before
+- `VocraSession.start()` / `stop()` each set a re-entrancy guard flag **synchronously, before
   the first `await`**, so two rapid calls (e.g. a double-tapped mic button) can't both slip
   past an "already started" check. Follow this pattern for any new start/stop-style guarded
   method.
 - Half-duplex (mic suspended while the AI speaks) is the default. Full-duplex barge-in requires
-  native echo cancellation (`NativeAecMicSource.isAvailable()`) and is gated: `VoiceSession`
+  native echo cancellation (`NativeAecMicSource.isAvailable()`) and is gated: `VocraSession`
   emits a `ConfigError` and refuses to start rather than silently downgrading if full-duplex was
   requested but AEC isn't available.
 
@@ -92,7 +92,7 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 - [packages/vocra_core/lib/src/engine/audio_queue.dart](packages/vocra_core/lib/src/engine/audio_queue.dart) — ordered TTS clip playback + interruption
 - [packages/vocra_core/lib/src/models/voice_config.dart](packages/vocra_core/lib/src/models/voice_config.dart) — public config surface (`DuplexMode`, `BargeInSensitivity`, provider wiring)
 - [packages/vocra_core/lib/src/models/voice_error.dart](packages/vocra_core/lib/src/models/voice_error.dart) — typed error hierarchy
-- [packages/vocra/lib/src/voice_session.dart](packages/vocra/lib/src/voice_session.dart) — the app-facing entry point (`VoiceSession`)
+- [packages/vocra/lib/src/voice_session.dart](packages/vocra/lib/src/voice_session.dart) — the app-facing entry point (`VocraSession`)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design rationale for non-obvious spec deviations
 
 ## Development Conventions
@@ -134,7 +134,7 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 
 | Doc | Read when |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Touching turn-state, `AudioQueue`, Deepgram final-transcript mapping, `VoiceSession` re-entrancy,/ or full-duplex/native-AEC logic |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Touching turn-state, `AudioQueue`, Deepgram final-transcript mapping, `VocraSession` re-entrancy,/ or full-duplex/native-AEC logic |
 | [packages/vocra_core/README.md](packages/vocra_core/README.md) | Working on the engine/provider-adapter package specifically |
 | [packages/vocra/README.md](packages/vocra/README.md) | Working on the Flutter platform layer specifically |
 | [packages/vocra/example/README.md](packages/vocra/example/README.md) | Running/modifying the demo app |

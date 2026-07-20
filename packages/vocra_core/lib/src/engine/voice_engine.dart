@@ -7,7 +7,7 @@ import '../models/greeting.dart';
 import '../models/transcript_event.dart';
 import '../models/turn_metrics.dart';
 import '../models/turn_state.dart';
-import '../models/voice_config.dart';
+import '../models/vocra_config.dart';
 import '../models/voice_error.dart';
 import '../providers/llm_provider.dart';
 import '../providers/stt_transport.dart';
@@ -38,7 +38,7 @@ class VoiceEngine {
     _normalizer = SpeechTextNormalizer(stripAudioTags: !_tts.supportsAudioTags);
   }
 
-  final VoiceConfig _config;
+  final VocraConfig _config;
   final MicSource _mic;
   final LlmProvider _llm;
   final TtsProvider _tts;
@@ -117,7 +117,7 @@ class VoiceEngine {
     _turnMachine.transitionTo(TurnState.listening);
 
     // If configured, the assistant speaks first. Fire-and-forget: start() must
-    // return so VoiceSession can mark itself started (otherwise stop() during
+    // return so VocraSession can mark itself started (otherwise stop() during
     // the greeting would be a no-op). The greeting runs as a normal turn from
     // `listening`, and must run AFTER mic.start() because a full-duplex mic
     // only resumes forwarding — it can't start capture — after the turn.
@@ -126,10 +126,10 @@ class VoiceEngine {
   }
 
   /// Composes the system prompt seeded into history. With
-  /// [VoiceConfig.naturalSpeech] off (the default) the app's prompt is used
+  /// [VocraConfig.naturalSpeech] off (the default) the app's prompt is used
   /// verbatim; on, it's followed by a voice-conversation style guide, plus
   /// audio-tag guidance when the TTS renders tags.
-  static String _composeSystemPrompt(VoiceConfig config) {
+  static String _composeSystemPrompt(VocraConfig config) {
     if (!config.naturalSpeech) return config.systemPrompt;
     final buffer = StringBuffer(config.systemPrompt)
       ..write('\n\n')
@@ -559,7 +559,7 @@ class VoiceEngine {
   }
 
   /// Keeps the system prompt (always `_history[0]`) and trims the oldest
-  /// non-system messages once history exceeds [VoiceConfig.maxHistoryMessages].
+  /// non-system messages once history exceeds [VocraConfig.maxHistoryMessages].
   void _trimHistory() {
     final overflow = _history.length - _config.maxHistoryMessages;
     if (overflow <= 0) return;

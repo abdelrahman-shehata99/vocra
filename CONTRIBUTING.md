@@ -6,7 +6,7 @@ workspace monorepo with two published packages:
 - `packages/vocra_core` — pure-Dart engine, provider adapters, transport
   (**no Flutter dependency**).
 - `packages/vocra` — Flutter platform layer (mic, playback,
-  permissions, `VoiceSession`).
+  permissions, `VocraSession`).
 
 ## Setup
 
