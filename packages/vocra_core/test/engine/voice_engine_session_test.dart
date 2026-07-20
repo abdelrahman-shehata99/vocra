@@ -140,6 +140,40 @@ void main() {
     });
 
     test(
+      'a structured VocraPrompt is rendered into the system message',
+      () async {
+        final h = Harness(
+          prompt: const VocraPrompt.sections([
+            PromptSection('Persona', 'You are Riley.'),
+          ]),
+        );
+        await h.engine.startConversation();
+        await pump();
+        h.engine.sendText('hi');
+        await pump(5);
+        final systemMessage = h.llm.historySnapshots.first.first;
+        expect(systemMessage.role, MessageRole.system);
+        expect(systemMessage.content, contains('## Persona'));
+        expect(systemMessage.content, contains('You are Riley.'));
+
+        h.llm.pushToken('Hi! ');
+        await h.llm.endStream();
+        await pump(30);
+      },
+    );
+
+    test('Greeting.none dispatches no greeting turn (like null)', () async {
+      final h = Harness(greeting: const Greeting.none());
+      final states = <TurnState>[];
+      h.engine.turnState.listen(states.add);
+      await h.engine.startConversation();
+      await pump(10);
+      // No greeting: settled at listening, no turn ran.
+      expect(states, [TurnState.listening]);
+      expect(h.llm.historySnapshots, isEmpty);
+    });
+
+    test(
       'startConversation clears the previous session record and mute',
       () async {
         final h = Harness();

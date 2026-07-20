@@ -20,6 +20,12 @@ sealed class Greeting {
   /// This adds one LLM round-trip of latency at session start; use
   /// [Greeting.text] when you want the opening to be instant.
   const factory Greeting.generated({String? instruction}) = GeneratedGreeting;
+
+  /// Explicitly no greeting: the session opens in `listening` and the user
+  /// speaks first. Identical to leaving [VocraConfig.greeting] null; exists so a
+  /// conditional reads cleanly without a nullable dance, e.g.
+  /// `greeting: returning ? Greeting.text('Welcome back!') : const Greeting.none()`.
+  const factory Greeting.none() = NoGreeting;
 }
 
 /// A fixed, LLM-free opening line. See [Greeting.text].
@@ -36,4 +42,9 @@ class GeneratedGreeting extends Greeting {
   /// Optional override for the prompt that elicits the greeting. When null, a
   /// sensible default instruction is used.
   final String? instruction;
+}
+
+/// An explicit "no greeting" sentinel. See [Greeting.none].
+class NoGreeting extends Greeting {
+  const NoGreeting();
 }

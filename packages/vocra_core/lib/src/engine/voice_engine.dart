@@ -202,7 +202,9 @@ class VoiceEngine {
     // `listening`, and must run AFTER mic.start() because a full-duplex mic
     // only resumes forwarding — it can't start capture — after the turn.
     final greeting = _config.greeting;
-    if (greeting != null) unawaited(_beginGreeting(greeting));
+    if (greeting != null && greeting is! NoGreeting) {
+      unawaited(_beginGreeting(greeting));
+    }
   }
 
   /// Composes the system prompt seeded into history. With
@@ -215,7 +217,9 @@ class VoiceEngine {
     if (name != null && name.trim().isNotEmpty) {
       buffer.write('Your name is ${name.trim()}. Refer to yourself by it.\n\n');
     }
-    buffer.write(config.systemPrompt);
+    // Exactly one of prompt/systemPrompt is set (VocraConfig asserts it); the
+    // `?? ''` keeps release builds safe if both are somehow null.
+    buffer.write(config.prompt?.render() ?? config.systemPrompt ?? '');
     if (config.naturalSpeech) {
       buffer
         ..write('\n\n')
@@ -257,6 +261,8 @@ class VoiceEngine {
   /// sent for this one call but never stored in history (the reply is stored).
   Future<void> _beginGreeting(Greeting greeting) {
     return switch (greeting) {
+      // Filtered out before this is called; matched for exhaustiveness.
+      NoGreeting() => Future<void>.value(),
       TextGreeting(:final text) => _runAssistantTurn(
         (_) => Stream<String>.value(text),
       ),

@@ -18,6 +18,7 @@ class Harness {
     Greeting? greeting,
     bool naturalSpeech = false,
     String systemPrompt = 'You are a helpful assistant.',
+    VocraPrompt? prompt,
     bool ttsSupportsAudioTags = false,
     SessionPolicies policies = const SessionPolicies(),
     String? assistantName,
@@ -31,7 +32,9 @@ class Harness {
       llm: llm,
       tts: tts,
       stt: stt,
-      systemPrompt: systemPrompt,
+      // A structured prompt is mutually exclusive with systemPrompt.
+      systemPrompt: prompt == null ? systemPrompt : null,
+      prompt: prompt,
       maxHistoryMessages: maxHistoryMessages,
       duplex: duplex,
       sensitivity: sensitivity,

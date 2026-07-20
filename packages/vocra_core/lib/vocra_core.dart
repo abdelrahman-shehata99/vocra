@@ -20,6 +20,7 @@ export 'src/models/turn_metrics.dart';
 export 'src/models/voice_error.dart';
 export 'src/models/vocra_config.dart';
 export 'src/models/greeting.dart';
+export 'src/models/vocra_prompt.dart';
 export 'src/models/session_report.dart';
 export 'src/models/session_policies.dart';
 

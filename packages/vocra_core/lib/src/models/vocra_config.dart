@@ -3,6 +3,7 @@ import '../providers/stt_transport.dart';
 import '../providers/tts_provider.dart';
 import 'greeting.dart';
 import 'session_policies.dart';
+import 'vocra_prompt.dart';
 
 /// Half-duplex (default, v1) suspends the mic while the AI speaks. Full
 /// duplex enables barge-in and requires native echo cancellation (spec §9).
@@ -19,7 +20,8 @@ class VocraConfig {
     required this.llm,
     required this.tts,
     required this.stt,
-    required this.systemPrompt,
+    this.systemPrompt,
+    this.prompt,
     this.temperature = 0.7,
     this.maxTokens = 512,
     this.maxHistoryMessages = 20,
@@ -29,14 +31,26 @@ class VocraConfig {
     this.naturalSpeech = false,
     this.policies = const SessionPolicies(),
     this.assistantName,
-  });
+  }) : assert(
+         systemPrompt != null || prompt != null,
+         'Provide either systemPrompt or prompt.',
+       ),
+       assert(
+         systemPrompt == null || prompt == null,
+         'Provide either systemPrompt or prompt, not both.',
+       );
 
   final LlmProvider llm;
   final TtsProvider tts;
   final SttTransport stt;
 
-  /// Persona / instructions, always kept as the first message in history.
-  final String systemPrompt;
+  /// Persona / instructions as plain text, kept as the first message in
+  /// history. Provide this OR [prompt] (exactly one).
+  final String? systemPrompt;
+
+  /// A structured system prompt (named sections, embedded JSON). Provide this
+  /// OR [systemPrompt] (exactly one). See [VocraPrompt].
+  final VocraPrompt? prompt;
 
   final double temperature;
   final int maxTokens;
