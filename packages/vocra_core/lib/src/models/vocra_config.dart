@@ -2,6 +2,7 @@ import '../providers/llm_provider.dart';
 import '../providers/stt_transport.dart';
 import '../providers/tts_provider.dart';
 import 'greeting.dart';
+import 'session_policies.dart';
 
 /// Half-duplex (default, v1) suspends the mic while the AI speaks. Full
 /// duplex enables barge-in and requires native echo cancellation (spec §9).
@@ -26,6 +27,8 @@ class VocraConfig {
     this.sensitivity = BargeInSensitivity.balanced,
     this.greeting,
     this.naturalSpeech = false,
+    this.policies = const SessionPolicies(),
+    this.assistantName,
   });
 
   final LlmProvider llm;
@@ -56,4 +59,12 @@ class VocraConfig {
   /// emojis) and — if the TTS supports them — light use of audio tags like
   /// `[laughs]`. Default false: [systemPrompt] is used verbatim.
   final bool naturalSpeech;
+
+  /// Automatic session-ending rules (max duration, silence timeout, end
+  /// phrases, farewell message). Default: nothing auto-ends the session.
+  final SessionPolicies policies;
+
+  /// The assistant's name. When set, it's woven into the system prompt so the
+  /// model refers to itself by it.
+  final String? assistantName;
 }

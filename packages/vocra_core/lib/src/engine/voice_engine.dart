@@ -103,6 +103,15 @@ class VoiceEngine {
   TurnMetrics _currentMetrics = const TurnMetrics();
   StringBuffer? _assistantText;
 
+  // Session-policy timers (both one-shot). Owned solely by the engine and
+  // cancelled at turn start, on end, and on dispose.
+  Timer? _maxDurationTimer;
+  Timer? _silenceTimer;
+  // Completed when the farewell turn drains, so the end flow can wait for the
+  // goodbye to finish playing before tearing down. Non-null only during a
+  // farewell.
+  Completer<void>? _turnDone;
+
   Stream<TurnState> get turnState => _turnMachine.stream;
   Stream<TranscriptEvent> get transcripts => _transcriptsController.stream;
 
@@ -184,6 +193,8 @@ class VoiceEngine {
     );
 
     _turnMachine.transitionTo(TurnState.listening);
+    _startMaxDurationTimer();
+    _armSilenceTimer();
 
     // If configured, the assistant speaks first. Fire-and-forget: start() must
     // return so VocraSession can mark itself started (otherwise stop() during
@@ -199,14 +210,21 @@ class VoiceEngine {
   /// verbatim; on, it's followed by a voice-conversation style guide, plus
   /// audio-tag guidance when the TTS renders tags.
   static String _composeSystemPrompt(VocraConfig config) {
-    if (!config.naturalSpeech) return config.systemPrompt;
-    final buffer = StringBuffer(config.systemPrompt)
-      ..write('\n\n')
-      ..write(_naturalSpeechPreamble);
-    if (config.tts.supportsAudioTags) {
+    final buffer = StringBuffer();
+    final name = config.assistantName;
+    if (name != null && name.trim().isNotEmpty) {
+      buffer.write('Your name is ${name.trim()}. Refer to yourself by it.\n\n');
+    }
+    buffer.write(config.systemPrompt);
+    if (config.naturalSpeech) {
       buffer
-        ..write(' ')
-        ..write(_audioTagAddendum);
+        ..write('\n\n')
+        ..write(_naturalSpeechPreamble);
+      if (config.tts.supportsAudioTags) {
+        buffer
+          ..write(' ')
+          ..write(_audioTagAddendum);
+      }
     }
     return buffer.toString();
   }
@@ -266,6 +284,7 @@ class VoiceEngine {
   /// dropped, and this future completes when the turn is dispatched, not when
   /// playback finishes.
   Future<void> speak(String text) async {
+    if (_endingFuture != null) return;
     unawaited(_runAssistantTurn((_) => Stream<String>.value(text)));
   }
 
@@ -296,7 +315,10 @@ class VoiceEngine {
   /// (an end phrase, a policy timer, an explicit [endSession]) all resolve to
   /// the one report. The `_endingFuture` guard is set synchronously before the
   /// first await, mirroring the VocraSession re-entrancy pattern.
-  Future<SessionReport> _endWith(SessionEndReason reason) {
+  Future<SessionReport> _endWith(
+    SessionEndReason reason, {
+    bool farewell = false,
+  }) {
     final inFlight = _endingFuture;
     if (inFlight != null) return inFlight;
     if (!_conversationActive) {
@@ -304,12 +326,23 @@ class VoiceEngine {
       if (last != null) return Future.value(last);
       throw StateError('endSession() called before startConversation().');
     }
-    final future = _runEnd(reason);
+    final future = _runEnd(reason, farewell: farewell);
     _endingFuture = future;
     return future;
   }
 
-  Future<SessionReport> _runEnd(SessionEndReason reason) async {
+  Future<SessionReport> _runEnd(
+    SessionEndReason reason, {
+    required bool farewell,
+  }) async {
+    _cancelPolicyTimers();
+    final endMessage = _config.policies.endMessage;
+    if (farewell && endMessage != null && endMessage.trim().isNotEmpty) {
+      // Hard-stop any in-flight reply (Vapi-style), then speak the goodbye as
+      // the session's final turn so it lands in the record/transcripts/history.
+      if (_turnInFlight) await interrupt();
+      await _speakFarewell(endMessage);
+    }
     await _teardown();
     final report = SessionReport(
       messages: List.unmodifiable(_sessionRecord),
@@ -353,6 +386,7 @@ class VoiceEngine {
   /// entire LLM/TTS/playback cycle to finish — callers track progress via
   /// [turnState]/[transcripts]/[metrics], not this future.
   Future<void> sendText(String text) async {
+    if (_endingFuture != null) return;
     // A spoken turn's user text reaches [transcripts] via STT; typed input
     // has no STT leg, so emit the equivalent final user event here — the
     // transcript stream is the full conversation record either way.
@@ -415,6 +449,7 @@ class VoiceEngine {
 
   Future<void> dispose() async {
     _turnCancel?.cancel();
+    _cancelPolicyTimers();
     await _cancelTurnSubs();
     await _micSub?.cancel();
     await _sttSub?.cancel();
@@ -429,6 +464,12 @@ class VoiceEngine {
 
   void _onSttTranscript(TranscriptEvent event) {
     _emitTranscript(event);
+
+    // Ending: keep surfacing transcripts for the UI, but take no action.
+    if (_endingFuture != null) return;
+
+    // Any user speech (even an interim) means the user isn't silent.
+    if (_turnMachine.state == TurnState.listening) _armSilenceTimer();
 
     // Full-duplex barge-in (spec §9): the mic was never paused, so real
     // speech arriving while the AI is talking means the user cut in.
@@ -445,6 +486,15 @@ class VoiceEngine {
     if (!event.isFinal) return;
     if (event.text.trim().isEmpty) return;
     if (_turnMachine.state != TurnState.listening) return;
+
+    // An end phrase ends the session instead of starting a reply, but is still
+    // recorded as the user's last message.
+    if (_matchesEndPhrase(event.text)) {
+      _addToHistory(ChatMessage(role: MessageRole.user, content: event.text));
+      unawaited(_endWith(SessionEndReason.endPhrase, farewell: true));
+      return;
+    }
+
     unawaited(_beginTurn(event.text));
   }
 
@@ -460,7 +510,7 @@ class VoiceEngine {
   Future<void> _beginTurn(String userText) async {
     // Guard before appending, so a dropped overlapping turn doesn't leave a
     // dangling user message with no reply.
-    if (_turnInFlight) return;
+    if (_turnInFlight || _endingFuture != null) return;
     _addToHistory(ChatMessage(role: MessageRole.user, content: userText));
     await _runAssistantTurn(
       (cancel) => _llm.streamCompletion(
@@ -484,6 +534,10 @@ class VoiceEngine {
     Stream<String> Function(Cancellation cancel) tokenSource,
   ) async {
     if (_turnInFlight) return;
+
+    // A turn is starting, so the user isn't silent — stand the timer down until
+    // we're back at listening (re-armed in _returnToRest).
+    _silenceTimer?.cancel();
 
     // Half-duplex pauses the mic during a turn — but only when there's a
     // live mic conversation to pause (R7). Typed-only turns skip this.
@@ -585,6 +639,7 @@ class VoiceEngine {
         await _resumeMicSafely();
       }
       _returnToRest();
+      _completeTurnDone();
     }
   }
 
@@ -656,6 +711,7 @@ class VoiceEngine {
       }());
     }
     _returnToRest();
+    _completeTurnDone();
   }
 
   /// Settles back to the resting state after a turn: [TurnState.listening]
@@ -667,12 +723,17 @@ class VoiceEngine {
   /// whereas thinking→idle is legal directly.
   void _returnToRest() {
     final target = _conversationActive ? TurnState.listening : TurnState.idle;
-    if (_turnMachine.state == target) return;
-    if (_turnMachine.state == TurnState.thinking &&
-        target == TurnState.listening) {
-      _turnMachine.transitionTo(TurnState.speaking);
+    if (_turnMachine.state != target) {
+      if (_turnMachine.state == TurnState.thinking &&
+          target == TurnState.listening) {
+        _turnMachine.transitionTo(TurnState.speaking);
+      }
+      _turnMachine.transitionTo(target);
     }
-    _turnMachine.transitionTo(target);
+    // Back to listening: (re)start the silence countdown, unless we're ending.
+    if (target == TurnState.listening && _endingFuture == null) {
+      _armSilenceTimer();
+    }
   }
 
   Future<void> _cancelTurnSubs() async {
@@ -680,6 +741,86 @@ class VoiceEngine {
     _drainedSub = null;
     await _clipStartedSub?.cancel();
     _clipStartedSub = null;
+  }
+
+  // ── Session policies (auto-end) ──────────────────────────────────────────
+
+  void _startMaxDurationTimer() {
+    final max = _config.policies.maxDuration;
+    if (max == null) return;
+    _maxDurationTimer = Timer(max, () {
+      if (_conversationActive && _endingFuture == null) {
+        unawaited(
+          _endWith(SessionEndReason.maxDurationReached, farewell: true),
+        );
+      }
+    });
+  }
+
+  /// (Re)starts the silence countdown. Called when entering [TurnState.listening]
+  /// and on every user transcript event while listening. A no-op when no
+  /// silence timeout is configured.
+  void _armSilenceTimer() {
+    _silenceTimer?.cancel();
+    final timeout = _config.policies.silenceTimeout;
+    if (timeout == null) return;
+    _silenceTimer = Timer(timeout, () {
+      if (_conversationActive &&
+          _endingFuture == null &&
+          _turnMachine.state == TurnState.listening) {
+        unawaited(_endWith(SessionEndReason.silenceTimeout, farewell: true));
+      }
+    });
+  }
+
+  void _cancelPolicyTimers() {
+    _maxDurationTimer?.cancel();
+    _maxDurationTimer = null;
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+  }
+
+  void _completeTurnDone() {
+    final done = _turnDone;
+    if (done != null && !done.isCompleted) done.complete();
+  }
+
+  /// Whether [text] (a final user transcript) matches one of the configured
+  /// end phrases. Both sides are normalized (lowercased, punctuation stripped,
+  /// whitespace collapsed) and the transcript must equal or end with the phrase.
+  bool _matchesEndPhrase(String text) {
+    final phrases = _config.policies.endPhrases;
+    if (phrases.isEmpty) return false;
+    final t = _normalizePhrase(text);
+    for (final phrase in phrases) {
+      final p = _normalizePhrase(phrase);
+      if (p.isEmpty) continue;
+      if (t == p || t.endsWith(' $p')) return true;
+    }
+    return false;
+  }
+
+  static final RegExp _phrasePunctuation = RegExp(
+    r"[^\p{L}\p{N}\s']",
+    unicode: true,
+  );
+  static final RegExp _whitespaceRun = RegExp(r'\s+');
+
+  static String _normalizePhrase(String s) => s
+      .toLowerCase()
+      .replaceAll(_phrasePunctuation, '')
+      .replaceAll(_whitespaceRun, ' ')
+      .trim();
+
+  /// Speaks the farewell [text] and waits for it to finish playing (bounded, so
+  /// a wedged TTS can never make the session unendable). Runs the scripted-turn
+  /// path directly, bypassing the new-turn guards.
+  Future<void> _speakFarewell(String text) async {
+    final done = Completer<void>();
+    _turnDone = done;
+    unawaited(_runAssistantTurn((_) => Stream<String>.value(text)));
+    await done.future.timeout(const Duration(seconds: 30), onTimeout: () {});
+    _turnDone = null;
   }
 
   void _addToHistory(ChatMessage message) {

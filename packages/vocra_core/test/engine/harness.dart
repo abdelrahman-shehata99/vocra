@@ -19,6 +19,8 @@ class Harness {
     bool naturalSpeech = false,
     String systemPrompt = 'You are a helpful assistant.',
     bool ttsSupportsAudioTags = false,
+    SessionPolicies policies = const SessionPolicies(),
+    String? assistantName,
   }) : mic = FakeMicSource(),
        stt = FakeSttTransport(),
        llm = FakeLlmProvider(),
@@ -35,6 +37,8 @@ class Harness {
       sensitivity: sensitivity,
       greeting: greeting,
       naturalSpeech: naturalSpeech,
+      policies: policies,
+      assistantName: assistantName,
     );
     engine = VoiceEngine(config, audioSink: sink, mic: mic);
   }
