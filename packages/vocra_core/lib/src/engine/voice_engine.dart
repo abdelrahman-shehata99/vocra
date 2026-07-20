@@ -261,9 +261,30 @@ class VoiceEngine {
 
     if (_isHalfDuplex && _conversationActive) {
       _micForwardingEnabled = true;
-      await _mic.resume();
+      await _resumeMicSafely();
     }
     _returnToRest();
+  }
+
+  /// Restarts mic capture after a turn. Resume runs on fire-and-forget paths
+  /// (turn drain, barge-in interrupt), so a throwing [MicSource.resume] must
+  /// surface on [errors] — not escape as an unhandled async exception and
+  /// crash the app. After a failed resume the session is listening but deaf;
+  /// the app can recover with stop()/start().
+  Future<void> _resumeMicSafely() async {
+    try {
+      await _mic.resume();
+    } catch (e) {
+      _errorsController.add(
+        e is VoiceError
+            ? e
+            : ProviderError(
+                provider: 'microphone',
+                statusCode: null,
+                message: 'Failed to restart microphone capture: $e',
+              ),
+      );
+    }
   }
 
   Future<void> dispose() async {
@@ -433,7 +454,7 @@ class VoiceEngine {
       await _cancelTurnSubs();
       if (_isHalfDuplex && _conversationActive) {
         _micForwardingEnabled = true;
-        await _mic.resume();
+        await _resumeMicSafely();
       }
       _returnToRest();
     }
@@ -502,7 +523,7 @@ class VoiceEngine {
         try {
           await _audioQueue.releaseSink();
         } catch (_) {}
-        await _mic.resume();
+        await _resumeMicSafely();
       }());
     }
     _returnToRest();

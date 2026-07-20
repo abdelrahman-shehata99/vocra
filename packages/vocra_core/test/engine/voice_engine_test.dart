@@ -332,6 +332,35 @@ void main() {
       expect(errors, [isA<NetworkError>()]);
     });
 
+    test(
+      'a mic that fails to resume after a turn surfaces a ProviderError '
+      'instead of crashing (turn-drain resume runs fire-and-forget)',
+      () async {
+        final h = _Harness();
+        final errors = <VoiceError>[];
+        h.engine.errors.listen(errors.add);
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+
+        await h.engine.startConversation();
+        h.mic.resumeError = StateError('Format conversion is not possible.');
+
+        h.stt.emitFinal('hello');
+        await pump(5);
+        h.llm.pushToken('Hi! ');
+        await h.llm.endStream();
+        await pump(30);
+
+        // The turn still completes and the session settles at listening;
+        // the resume failure is reported, not thrown into the void.
+        expect(states.last, TurnState.listening);
+        expect(errors, hasLength(1));
+        final error = errors.single;
+        expect(error, isA<ProviderError>());
+        expect((error as ProviderError).provider, 'microphone');
+      },
+    );
+
     test('stopConversation tears everything down and goes idle', () async {
       final h = _Harness();
       final states = <TurnState>[];

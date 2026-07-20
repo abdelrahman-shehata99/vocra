@@ -47,6 +47,10 @@ class FakeMicSource implements MicSource {
   int resumeCalls = 0;
   int stopCalls = 0;
 
+  /// When set, [resume] throws this — simulates a mic that fails to restart
+  /// after the AI's turn (e.g. the platform recorder refusing the format).
+  Object? resumeError;
+
   @override
   Future<void> start() async {
     started = true;
@@ -63,6 +67,8 @@ class FakeMicSource implements MicSource {
   @override
   Future<void> resume() async {
     resumeCalls++;
+    final error = resumeError;
+    if (error != null) throw error;
   }
 
   @override

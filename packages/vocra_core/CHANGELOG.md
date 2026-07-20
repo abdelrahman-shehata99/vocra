@@ -29,6 +29,11 @@ First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 - First-turn latency: LLM/TTS network paths are pre-warmed and the mic + STT
   transport start concurrently at conversation start.
 
+### Fixed
+- A `MicSource.resume()` failure after a turn now surfaces as a
+  `ProviderError(provider: 'microphone')` on the `errors` stream instead of
+  escaping as an unhandled async exception.
+
 ## 0.1.0
 
 Internal pre-release (git tag `v0.1.0`, never published): streaming
