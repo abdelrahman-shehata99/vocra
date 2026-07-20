@@ -139,5 +139,18 @@ void main() {
       expect(session.messages, isA<Stream<List<TranscriptEvent>>>());
       await session.dispose();
     });
+
+    test('conversation and lastReport delegate to the engine', () async {
+      final session = buildSession();
+      expect(session.conversation, isEmpty);
+      expect(session.lastReport, isNull);
+      await session.dispose();
+    });
+
+    test('endSession before start throws StateError', () async {
+      final session = buildSession();
+      await expectLater(session.endSession(), throwsStateError);
+      await session.dispose();
+    });
   });
 }

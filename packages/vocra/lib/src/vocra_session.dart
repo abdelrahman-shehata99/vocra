@@ -23,6 +23,12 @@ class VocraSession {
       _micPermission = const MicPermission() {
     _engine = VoiceEngine(config, audioSink: _sink, mic: _mic);
     _engineErrorsSub = _engine.errors.listen(_errorsController.add);
+    // When the engine ends itself (max duration, silence, or an end phrase),
+    // the mic/STT are stopped but this session's audio-session + interruption
+    // subs are still live. Route every engine end through stop() to tear those
+    // down too. Idempotent: an app-initiated stop() re-enters the _stopping
+    // guard here and no-ops.
+    _sessionEndedSub = _engine.sessionEnded.listen((_) => unawaited(stop()));
   }
 
   final VocraConfig _config;
@@ -31,6 +37,7 @@ class VocraSession {
   final MicPermission _micPermission;
   late final VoiceEngine _engine;
   late final StreamSubscription<VoiceError> _engineErrorsSub;
+  late final StreamSubscription<SessionReport> _sessionEndedSub;
 
   final StreamController<VoiceError> _errorsController =
       StreamController<VoiceError>.broadcast();
@@ -51,6 +58,18 @@ class VocraSession {
   /// instead of merging raw [transcripts] events yourself.
   Stream<List<TranscriptEvent>> get messages => _engine.messages;
   Stream<TurnMetrics> get metrics => _engine.metrics;
+
+  /// Fires a [SessionReport] whenever the session ends — whether the app called
+  /// [stop]/[endSession] or the session ended itself (max duration, silence, or
+  /// an end phrase). When it fires the session is fully torn down.
+  Stream<SessionReport> get sessionEnded => _engine.sessionEnded;
+
+  /// The most recently completed session's report, or null before the first end.
+  SessionReport? get lastReport => _engine.lastReport;
+
+  /// This session's user + assistant messages so far (never the system prompt),
+  /// untrimmed and unmodifiable.
+  List<ChatMessage> get conversation => _engine.conversation;
 
   /// Engine errors plus session-level errors (e.g. permission denial) that
   /// have no equivalent in [VoiceEngine] itself.
@@ -132,6 +151,18 @@ class VocraSession {
     }
   }
 
+  /// Ends the session and returns its [SessionReport] (messages, duration, turn
+  /// count, and why it ended). Reuses [stop]'s teardown; the same report also
+  /// arrives on [sessionEnded].
+  Future<SessionReport> endSession() async {
+    await stop();
+    final report = _engine.lastReport;
+    if (report == null) {
+      throw StateError('endSession() called before start().');
+    }
+    return report;
+  }
+
   Future<void> sendText(String text) => _engine.sendText(text);
 
   /// Speaks [text] in the assistant's voice without an LLM call — for
@@ -156,6 +187,7 @@ class VocraSession {
 
   Future<void> dispose() async {
     await stop();
+    await _sessionEndedSub.cancel();
     await _engineErrorsSub.cancel();
     await _errorsController.close();
     await _engine.dispose();

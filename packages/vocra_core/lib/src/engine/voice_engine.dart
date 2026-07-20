@@ -4,6 +4,7 @@ import '../io/audio_sink.dart';
 import '../io/mic_source.dart';
 import '../models/chat_message.dart';
 import '../models/greeting.dart';
+import '../models/session_report.dart';
 import '../models/transcript_event.dart';
 import '../models/turn_metrics.dart';
 import '../models/turn_state.dart';
@@ -53,8 +54,23 @@ class VoiceEngine {
 
   final List<ChatMessage> _history = [];
 
+  // The conversation record surfaced to apps: user + assistant messages only
+  // (never the system prompt), and NEVER trimmed — unlike `_history`, which is
+  // capped to `maxHistoryMessages` as the LLM context window. So a long
+  // session's report keeps every message even after early ones fall out of
+  // context.
+  final List<ChatMessage> _sessionRecord = [];
+  final List<TurnMetrics> _sessionMetrics = [];
+  DateTime? _startedAt;
+  SessionReport? _lastReport;
+  // Set synchronously the moment an end begins, so overlapping end causes
+  // (a policy timer, an end phrase, endSession()) all resolve to one report.
+  Future<SessionReport>? _endingFuture;
+
   final StreamController<TranscriptEvent> _transcriptsController =
       StreamController<TranscriptEvent>.broadcast();
+  final StreamController<SessionReport> _sessionEndedController =
+      StreamController<SessionReport>.broadcast();
   final StreamController<List<TranscriptEvent>> _messagesController =
       StreamController<List<TranscriptEvent>>.broadcast();
   final StreamController<TurnMetrics> _metricsController =
@@ -99,6 +115,20 @@ class VoiceEngine {
   Stream<TurnMetrics> get metrics => _metricsController.stream;
   Stream<VoiceError> get errors => _errorsController.stream;
 
+  /// Fires a [SessionReport] on **every** end path — user stop/endSession and
+  /// every automatic end (max duration, silence, end phrase). When it fires the
+  /// session is fully torn down and a fresh [startConversation] is legal.
+  Stream<SessionReport> get sessionEnded => _sessionEndedController.stream;
+
+  /// The most recently completed session's report, or null before the first
+  /// end. Survives until the next session ends.
+  SessionReport? get lastReport => _lastReport;
+
+  /// This session's user + assistant messages, in order, as an unmodifiable
+  /// list. Never includes the system prompt or the internal natural-speech
+  /// preamble. Not trimmed by `maxHistoryMessages`.
+  List<ChatMessage> get conversation => List.unmodifiable(_sessionRecord);
+
   /// The single funnel for every transcript event: emits the raw event on
   /// [transcripts] and the updated aggregated list on [messages].
   void _emitTranscript(TranscriptEvent event) {
@@ -120,6 +150,19 @@ class VoiceEngine {
   };
 
   Future<void> startConversation() async {
+    // Each startConversation() is a fresh conversation: reset the record, the
+    // aggregated view, metrics, mute, and the LLM context window (keeping only
+    // the seeded system prompt at [0]). `lastReport` is intentionally NOT
+    // cleared — a late reader can still fetch the previous session's report
+    // until this one ends. Apps that clear mid-app already rebuild the session.
+    if (_history.length > 1) _history.removeRange(1, _history.length);
+    _sessionRecord.clear();
+    _sessionMetrics.clear();
+    _aggregator.clear();
+    _userMuted = false;
+    _endingFuture = null;
+    _startedAt = DateTime.now();
+
     _conversationActive = true;
     // Establish the LLM/TTS network paths (DNS + TCP + TLS) while the mic and
     // STT transport spin up, so the first turn doesn't pay the handshake.
@@ -236,7 +279,55 @@ class VoiceEngine {
     } catch (_) {}
   }
 
+  /// Ends the conversation and returns its [SessionReport]. Equivalent to
+  /// [stopConversation] but hands back the report; also available on
+  /// [sessionEnded] for automatic ends.
+  Future<SessionReport> endSession() => _endWith(SessionEndReason.userStopped);
+
+  /// Ends the conversation (report-less form, kept for the existing lifecycle
+  /// API). Delegates to the same end flow as [endSession].
   Future<void> stopConversation() async {
+    if (_conversationActive || _endingFuture != null) {
+      await _endWith(SessionEndReason.userStopped);
+    }
+  }
+
+  /// The single entry to ending a session. Idempotent: overlapping causes
+  /// (an end phrase, a policy timer, an explicit [endSession]) all resolve to
+  /// the one report. The `_endingFuture` guard is set synchronously before the
+  /// first await, mirroring the VocraSession re-entrancy pattern.
+  Future<SessionReport> _endWith(SessionEndReason reason) {
+    final inFlight = _endingFuture;
+    if (inFlight != null) return inFlight;
+    if (!_conversationActive) {
+      final last = _lastReport;
+      if (last != null) return Future.value(last);
+      throw StateError('endSession() called before startConversation().');
+    }
+    final future = _runEnd(reason);
+    _endingFuture = future;
+    return future;
+  }
+
+  Future<SessionReport> _runEnd(SessionEndReason reason) async {
+    await _teardown();
+    final report = SessionReport(
+      messages: List.unmodifiable(_sessionRecord),
+      startedAt: _startedAt ?? DateTime.now(),
+      endedAt: DateTime.now(),
+      endReason: reason,
+      turnCount: _sessionMetrics.length,
+      turnMetrics: List.unmodifiable(_sessionMetrics),
+    );
+    _lastReport = report;
+    _sessionEndedController.add(report);
+    return report;
+  }
+
+  /// Stops the mic/STT and settles at [TurnState.idle]. Best-effort: a mic or
+  /// STT transport that throws while stopping must not leave the engine stuck
+  /// outside `idle`, or every later start attempt would be silently refused.
+  Future<void> _teardown() async {
     _conversationActive = false;
     _turnCancel?.cancel();
     await _audioQueue.interrupt();
@@ -247,10 +338,6 @@ class VoiceEngine {
     await _sttSub?.cancel();
     _sttSub = null;
 
-    // Best-effort teardown: a mic or STT transport that throws while
-    // stopping (e.g. an audio device already in a bad state) must not leave
-    // the engine stuck outside `idle`, or every later start attempt would
-    // be silently refused and the session could never be revived.
     try {
       await _mic.stop();
     } catch (_) {}
@@ -337,6 +424,7 @@ class VoiceEngine {
     await _messagesController.close();
     await _metricsController.close();
     await _errorsController.close();
+    await _sessionEndedController.close();
   }
 
   void _onSttTranscript(TranscriptEvent event) {
@@ -540,6 +628,7 @@ class VoiceEngine {
     _turnStopwatch?.stop();
     _currentMetrics = _currentMetrics.copyWith(total: _turnStopwatch?.elapsed);
     _metricsController.add(_currentMetrics);
+    _sessionMetrics.add(_currentMetrics);
 
     final text = _assistantText?.toString() ?? '';
     if (text.isNotEmpty) {
@@ -595,6 +684,9 @@ class VoiceEngine {
 
   void _addToHistory(ChatMessage message) {
     _history.add(message);
+    // The untrimmed app-facing record only ever sees user/assistant messages
+    // (the system prompt is seeded directly, never via _addToHistory).
+    _sessionRecord.add(message);
     _trimHistory();
   }
 
