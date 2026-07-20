@@ -41,6 +41,7 @@ class DeepgramStt implements SttTransport {
   DeepgramStt({
     required this._apiKey,
     this.model = 'nova-2',
+    this.language,
     this._baseUrl = 'wss://api.deepgram.com/v1/listen',
     this._channelFactory = _defaultChannelFactory,
     this._keepAliveInterval = const Duration(seconds: 8),
@@ -50,6 +51,11 @@ class DeepgramStt implements SttTransport {
 
   final String _apiKey;
   final String model;
+
+  /// BCP-47 language code (e.g. `'en'`, `'es'`, `'fr'`). When null, Deepgram
+  /// uses the model's default. For multilingual use consider `model: 'nova-3'`.
+  final String? language;
+
   final String _baseUrl;
   final WebSocketChannelFactory _channelFactory;
   final Duration _keepAliveInterval;
@@ -102,6 +108,8 @@ class DeepgramStt implements SttTransport {
         // produce a `speech_final`. Without it, an utterance that never gets a
         // `speech_final` would never trigger a turn (see _onMessage).
         'utterance_end_ms': '${_utteranceEnd.inMilliseconds}',
+        // Only send `language` when set — Deepgram rejects an empty value.
+        'language': ?language,
       },
     );
 

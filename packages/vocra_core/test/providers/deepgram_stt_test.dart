@@ -43,7 +43,25 @@ void main() {
       expect(capturedUri.queryParameters['endpointing'], '300');
       expect(capturedUri.queryParameters['utterance_end_ms'], '1000');
       expect(capturedHeaders['Authorization'], 'Token secret-key');
+      // language is omitted unless configured (Deepgram rejects an empty value).
+      expect(capturedUri.queryParameters.containsKey('language'), isFalse);
 
+      await stt.dispose();
+    });
+
+    test('includes the language query parameter when configured', () async {
+      late Uri capturedUri;
+      final stt = DeepgramStt(
+        apiKey: 'key',
+        language: 'es',
+        channelFactory: (uri, {required headers}) {
+          capturedUri = uri;
+          return FakeWebSocketChannel();
+        },
+      );
+
+      await stt.start();
+      expect(capturedUri.queryParameters['language'], 'es');
       await stt.dispose();
     });
 
