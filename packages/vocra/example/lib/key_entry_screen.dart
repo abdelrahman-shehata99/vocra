@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vocra_flutter/vocra_flutter.dart';
+import 'package:vocra/vocra.dart';
 
 import 'conversation_screen.dart';
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vocra_flutter/vocra_flutter.dart';
+import 'package:vocra/vocra.dart';
 
-import 'package:vocra_flutter_example/key_entry_screen.dart';
+import 'package:vocra_example/key_entry_screen.dart';
 
 /// In-memory [KeyStore] so widget tests never touch the real secure-storage
 /// platform channel (which has no mock in the test environment).

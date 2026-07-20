@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:vocra_flutter/vocra_flutter.dart';
+import 'package:vocra/vocra.dart';
 
 class _MockAudioPlayer extends Mock implements AudioPlayer {}
 

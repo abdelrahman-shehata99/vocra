@@ -5,7 +5,7 @@ workspace monorepo with two published packages:
 
 - `packages/vocra_core` — pure-Dart engine, provider adapters, transport
   (**no Flutter dependency**).
-- `packages/vocra_flutter` — Flutter platform layer (mic, playback,
+- `packages/vocra` — Flutter platform layer (mic, playback,
   permissions, `VoiceSession`).
 
 ## Setup
@@ -23,7 +23,7 @@ dart run melos bootstrap
 |---|---|
 | `dart run melos run analyze` | `dart analyze` across all packages |
 | `dart run melos run format` | check formatting (no auto-fix) |
-| `dart run melos run test` | `dart test` (vocra_core) + `flutter test` (vocra_flutter) |
+| `dart run melos run test` | `dart test` (vocra_core) + `flutter test` (vocra) |
 | `cd packages/vocra_core && dart test` | faster iteration on the engine |
 
 Run `dart run melos run analyze` and `dart run melos run test` before opening a
@@ -32,7 +32,7 @@ PR. Format with `dart format .`.
 ## Conventions
 
 - Keep `vocra_core` free of `package:flutter` imports — Flutter-specific code
-  belongs in `vocra_flutter`, wired through the `AudioSink` / `MicSource` /
+  belongs in `vocra`, wired through the `AudioSink` / `MicSource` /
   `KeyStore` interfaces.
 - `TurnMachine` is the sole owner of turn-state transitions; only `VoiceEngine`
   drives it.
@@ -48,4 +48,4 @@ greeting, full-duplex AEC) before changing them.
 ## Releasing
 
 Both packages version in lockstep. Publish `vocra_core` first, then
-`vocra_flutter` (see the release runbook in the repo README).
+`vocra` (see the release runbook in the repo README).

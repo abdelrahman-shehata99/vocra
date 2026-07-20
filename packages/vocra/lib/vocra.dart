@@ -5,7 +5,7 @@
 /// It re-exports all of `vocra_core`, so a single import is enough:
 ///
 /// ```dart
-/// import 'package:vocra_flutter/vocra_flutter.dart';
+/// import 'package:vocra/vocra.dart';
 ///
 /// final session = VoiceSession(
 ///   config: VoiceConfig(

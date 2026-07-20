@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:vocra_flutter/vocra_flutter.dart';
+import 'package:vocra/vocra.dart';
 
 /// Conversation screen (spec §10): mic toggle, live transcript, turn-state
 /// indicator, latency readout, and a clear-conversation button.

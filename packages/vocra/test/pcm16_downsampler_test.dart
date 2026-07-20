@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vocra_flutter/src/pcm16_downsampler.dart';
+import 'package:vocra/src/pcm16_downsampler.dart';
 
 Uint8List pcm(List<int> samples) {
   final data = ByteData(samples.length * 2);

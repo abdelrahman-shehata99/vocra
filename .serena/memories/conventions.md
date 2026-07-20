@@ -12,7 +12,7 @@
   before the first `await`, specifically to close races from rapid double-calls (e.g.
   double-tapped UI button). Follow this pattern for any new start/stop-style guarded method.
 - Tests: `test` package for vocra_core (mocktail for mocking, `stream_channel` /
-  `fake_websocket_channel.dart` fakes for WS-based providers), `flutter_test` for vocra_flutter.
+  `fake_websocket_channel.dart` fakes for WS-based providers), `flutter_test` for vocra.
   Test files mirror `lib/src/...` structure under `test/...`. Non-obvious behavioral decisions
   get a dedicated named test (e.g. deepgram_stt_test.dart's "maps speech_final ... not raw
   is_final") rather than just being asserted incidentally — grep test descriptions before

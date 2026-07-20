@@ -1,9 +1,10 @@
-name: vocra_flutter
+name: vocra
 description: >
-  Flutter platform layer for the Vocra voice AI SDK: mic capture, audio
-  playback, permissions, and the app-facing VoiceSession API. Uses vocra_core.
+  On-device voice AI for Flutter: user speaks, AI replies out loud. Pluggable
+  LLM/STT/TTS (Groq, OpenAI, Gemini, Deepgram, ElevenLabs), greetings, natural
+  speech, and full conversation control — no backend required.
 version: 0.2.0
-repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter
+repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra
 issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
 homepage: https://github.com/abdelrahman-shehata99/vocra
 topics:

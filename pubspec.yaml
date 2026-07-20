@@ -9,8 +9,8 @@ dev_dependencies:
 
 workspace:
   - packages/vocra_core
-  - packages/vocra_flutter
-  - packages/vocra_flutter/example
+  - packages/vocra
+  - packages/vocra/example
 
 melos:
   name: vocra
