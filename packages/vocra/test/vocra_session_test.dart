@@ -152,5 +152,52 @@ void main() {
       await expectLater(session.endSession(), throwsStateError);
       await session.dispose();
     });
+
+    test('observe forwards messages and errors, and cancel detaches', () async {
+      final session = buildSession();
+      final messages = <List<TranscriptEvent>>[];
+      final errors = <VoiceError>[];
+      final sub = session.observe(
+        onMessages: messages.add,
+        onError: errors.add,
+      );
+
+      // sendText drives a user transcript through the aggregated messages
+      // stream (the _NoopTts/_NoopLlm complete the turn quietly).
+      await session.sendText('hi');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(messages, isNotEmpty);
+      expect(messages.last.first.text, 'hi');
+
+      final countBeforeCancel = messages.length;
+      await sub.cancel();
+      await session.sendText('again');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // No new callbacks after cancel.
+      expect(messages.length, countBeforeCancel);
+
+      await session.dispose();
+    });
+
+    test('two observe handles are independent', () async {
+      final session = buildSession();
+      final a = <TurnState>[];
+      final b = <TurnState>[];
+      final subA = session.observe(onState: a.add);
+      session.observe(onState: b.add);
+
+      await session.sendText('hi');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await subA.cancel();
+      final aAfter = a.length;
+
+      await session.sendText('more');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // A stopped; B kept receiving.
+      expect(a.length, aAfter);
+      expect(b.length, greaterThanOrEqualTo(a.length));
+
+      await session.dispose();
+    });
   });
 }

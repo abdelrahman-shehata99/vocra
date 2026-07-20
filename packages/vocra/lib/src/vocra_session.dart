@@ -185,6 +185,39 @@ class VocraSession {
   /// Resumes forwarding the user's microphone audio after [mute].
   void unmute() => _engine.unmute();
 
+  /// Attaches any subset of listeners in one call and returns a handle that
+  /// detaches them all. Cleaner than wiring the raw streams individually:
+  ///
+  /// ```dart
+  /// final sub = session.observe(
+  ///   onState: (s) => setState(() => _state = s),
+  ///   onMessages: (msgs) => setState(() => _messages = msgs),
+  ///   onError: (e) => showError(e.message),
+  /// );
+  /// // ... later, in dispose:
+  /// await sub.cancel();
+  /// ```
+  ///
+  /// May be called multiple times; each returned [VocraSubscription] is
+  /// independent. All of them stop when the session is [dispose]d. The raw
+  /// streams ([turnState], [messages], [transcripts], [errors], [metrics])
+  /// remain available for advanced use.
+  VocraSubscription observe({
+    void Function(TurnState state)? onState,
+    void Function(List<TranscriptEvent> messages)? onMessages,
+    void Function(TranscriptEvent event)? onTranscript,
+    void Function(VoiceError error)? onError,
+    void Function(TurnMetrics metrics)? onMetrics,
+  }) {
+    return VocraSubscription._([
+      if (onState != null) turnState.listen(onState),
+      if (onMessages != null) messages.listen(onMessages),
+      if (onTranscript != null) transcripts.listen(onTranscript),
+      if (onError != null) errors.listen(onError),
+      if (onMetrics != null) metrics.listen(onMetrics),
+    ]);
+  }
+
   Future<void> dispose() async {
     await stop();
     await _sessionEndedSub.cancel();
@@ -221,5 +254,18 @@ class VocraSession {
     _becomingNoisySub = audioSession.becomingNoisy.listen((_) {
       unawaited(_engine.interrupt());
     });
+  }
+}
+
+/// A handle to the listeners attached by one [VocraSession.observe] call.
+/// Call [cancel] (e.g. in your widget's `dispose`) to detach them all.
+final class VocraSubscription {
+  VocraSubscription._(this._subs);
+
+  final List<StreamSubscription<dynamic>> _subs;
+
+  /// Detaches every listener from the originating [VocraSession.observe] call.
+  Future<void> cancel() async {
+    await Future.wait(_subs.map((s) => s.cancel()));
   }
 }
