@@ -28,6 +28,8 @@ export 'src/io/mic_source.dart';
 export 'src/io/key_store.dart';
 
 export 'src/providers/llm_provider.dart';
+export 'src/providers/openai_compatible_llm.dart';
+export 'src/providers/openai_llm.dart';
 export 'src/providers/tts_provider.dart';
 export 'src/providers/stt_transport.dart';
 export 'src/providers/groq_llm.dart';
