@@ -18,16 +18,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   late VocraSession _session;
 
   TurnState _turnState = TurnState.idle;
-  final List<TranscriptEvent> _transcript = [];
+  List<TranscriptEvent> _transcript = const [];
   final TextEditingController _textController = TextEditingController();
   TurnMetrics? _lastMetrics;
   String? _lastError;
   bool _starting = false;
 
-  StreamSubscription<TurnState>? _turnStateSub;
-  StreamSubscription<TranscriptEvent>? _transcriptsSub;
-  StreamSubscription<TurnMetrics>? _metricsSub;
-  StreamSubscription<VoiceError>? _errorsSub;
+  VocraSubscription? _sub;
 
   bool get _isActive => _turnState != TurnState.idle;
 
@@ -38,37 +35,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _wire(_session);
   }
 
+  // One observe() call replaces four manual listeners: the SDK already
+  // aggregates interim/final transcripts into `messages`, so the UI just
+  // renders whatever list it's handed.
   void _wire(VocraSession session) {
-    _turnStateSub = session.turnState.listen((s) {
-      if (!mounted) return;
-      setState(() => _turnState = s);
-    });
-    _transcriptsSub = session.transcripts.listen((event) {
-      if (!mounted) return;
-      setState(() {
-        if (event.isFinal) {
-          _transcript.add(event);
-        } else {
-          // Replace the trailing interim event from the same speaker
-          // in-place instead of growing the list per partial update.
-          if (_transcript.isNotEmpty &&
-              !_transcript.last.isFinal &&
-              _transcript.last.source == event.source) {
-            _transcript[_transcript.length - 1] = event;
-          } else {
-            _transcript.add(event);
-          }
-        }
-      });
-    });
-    _metricsSub = session.metrics.listen((m) {
-      if (!mounted) return;
-      setState(() => _lastMetrics = m);
-    });
-    _errorsSub = session.errors.listen((e) {
-      if (!mounted) return;
-      setState(() => _lastError = e.message);
-    });
+    _sub = session.observe(
+      onState: (s) {
+        if (mounted) setState(() => _turnState = s);
+      },
+      onMessages: (messages) {
+        if (mounted) setState(() => _transcript = messages);
+      },
+      onMetrics: (m) {
+        if (mounted) setState(() => _lastMetrics = m);
+      },
+      onError: (e) {
+        if (mounted) setState(() => _lastError = e.message);
+      },
+    );
   }
 
   Future<void> _toggleMic() async {
@@ -94,15 +78,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Future<void> _clearConversation() async {
     final oldSession = _session;
-    await _turnStateSub?.cancel();
-    await _transcriptsSub?.cancel();
-    await _metricsSub?.cancel();
-    await _errorsSub?.cancel();
+    await _sub?.cancel();
 
     final freshSession = VocraSession(config: widget.config);
     setState(() {
       _session = freshSession;
-      _transcript.clear();
+      _transcript = const [];
       _lastMetrics = null;
       _lastError = null;
       _turnState = TurnState.idle;
@@ -115,10 +96,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void dispose() {
     _textController.dispose();
-    _turnStateSub?.cancel();
-    _transcriptsSub?.cancel();
-    _metricsSub?.cancel();
-    _errorsSub?.cancel();
+    _sub?.cancel();
     _session.dispose();
     super.dispose();
   }
