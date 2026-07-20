@@ -5,6 +5,17 @@
 First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 
 ### Added
+- Provider facades `VocraLlm` / `VocraTts` / `VocraStt` (e.g.
+  `VocraLlm.openAi(apiKey: ...)`); new `OpenAiLlm` + shared
+  `OpenAiCompatibleLlm` base.
+- `VocraPrompt` structured system prompts (`sections`, `json`, `jsonText`) as an
+  alternative to `VocraConfig.systemPrompt`.
+- Conversation control & retrieval: `conversation`, `messages` (live aggregated
+  transcript via `TranscriptAggregator`), `mute`/`unmute`/`isMuted`,
+  `endSession()`, `sessionEnded`, `lastReport`, and the `SessionReport` model.
+- `VocraConfig.policies` (`SessionPolicies`: max duration, silence timeout, end
+  phrases, farewell `endMessage`) and `VocraConfig.assistantName`.
+- `Greeting.none()`; `DeepgramStt` `language` parameter.
 - `VocraConfig.greeting` (`Greeting.text` / `Greeting.generated`) so the
   assistant can speak first when a conversation starts.
 - `VocraConfig.naturalSpeech`: augments the system prompt with a live-voice
@@ -19,6 +30,10 @@ First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 - `DeepgramStt` exposes `endpointing` / `utteranceEnd` tuning parameters.
 
 ### Changed
+- **Breaking (rename):** `VoiceConfig` → `VocraConfig`; `systemPrompt` is now
+  optional (provide it or `prompt`).
+- **Breaking (behavior):** conversation history now resets on each
+  `startConversation()` (a session is one conversation).
 - **Breaking (interface):** `LlmProvider` and `TtsProvider` gained members
   (`warmUp`, `supportsAudioTags`). Custom providers using `implements` must add
   them; the built-in adapters are updated.
