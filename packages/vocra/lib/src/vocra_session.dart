@@ -140,6 +140,20 @@ class VocraSession {
   /// turn is already in flight is dropped.
   Future<void> speak(String text) => _engine.speak(text);
 
+  /// Cancels the in-flight reply (if any) and returns to listening without
+  /// tearing the session down — a manual "stop talking".
+  Future<void> interrupt() => _engine.interrupt();
+
+  /// Whether the user's microphone is muted (see [mute]).
+  bool get isMuted => _engine.isMuted;
+
+  /// Stops the user's audio reaching speech recognition without pausing capture
+  /// or changing turn state; the AI can still be heard and [unmute] is instant.
+  void mute() => _engine.mute();
+
+  /// Resumes forwarding the user's microphone audio after [mute].
+  void unmute() => _engine.unmute();
+
   Future<void> dispose() async {
     await stop();
     await _engineErrorsSub.cancel();

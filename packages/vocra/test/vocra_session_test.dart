@@ -108,4 +108,36 @@ void main() {
       await session.dispose();
     });
   });
+
+  group('VocraSession pass-throughs', () {
+    setUp(() {
+      messenger.setMockMethodCallHandler(recordChannel, (call) async => null);
+    });
+    tearDown(() {
+      messenger.setMockMethodCallHandler(recordChannel, null);
+    });
+
+    test('mute/unmute/isMuted delegate to the engine', () async {
+      final session = buildSession();
+      expect(session.isMuted, isFalse);
+      session.mute();
+      expect(session.isMuted, isTrue);
+      session.unmute();
+      expect(session.isMuted, isFalse);
+      await session.dispose();
+    });
+
+    test('interrupt is safe to call before a turn is in flight', () async {
+      final session = buildSession();
+      // idle -> interrupt is a no-op, must not throw.
+      await session.interrupt();
+      await session.dispose();
+    });
+
+    test('messages stream is exposed', () async {
+      final session = buildSession();
+      expect(session.messages, isA<Stream<List<TranscriptEvent>>>());
+      await session.dispose();
+    });
+  });
 }

@@ -72,6 +72,11 @@ class VoiceEngine {
   StreamSubscription<int>? _clipStartedSub;
 
   bool _micForwardingEnabled = true;
+  // User-controlled mute (mute()/unmute()). Kept SEPARATE from
+  // `_micForwardingEnabled` — which the engine toggles at every turn boundary —
+  // so the two never fight: user intent is a distinct flag AND-ed at the single
+  // forwarding site, and the engine's turn-boundary toggles can't clobber it.
+  bool _userMuted = false;
   // True between startConversation() and stopConversation(): the mic + STT
   // are live. Typed turns (sendText) can also run while this is false, in
   // which case there's no mic to pause/resume and the engine rests at idle
@@ -124,7 +129,7 @@ class VoiceEngine {
     await Future.wait([_mic.start(), _stt.start()]);
 
     _micSub = _mic.pcm16.listen((frame) {
-      if (_micForwardingEnabled) _stt.sendAudio(frame);
+      if (_micForwardingEnabled && !_userMuted) _stt.sendAudio(frame);
     });
     _sttSub = _stt.transcripts.listen(
       _onSttTranscript,
@@ -269,6 +274,19 @@ class VoiceEngine {
     );
     unawaited(_beginTurn(text));
   }
+
+  /// Whether the user's microphone is muted (see [mute]).
+  bool get isMuted => _userMuted;
+
+  /// Stops the user's captured audio from reaching STT, without changing the
+  /// turn state or pausing capture — the AI can still be heard, [sendText]
+  /// still works, and [unmute] resumes instantly. Survives turn boundaries.
+  /// Note: audio already buffered in the STT socket may still yield one last
+  /// transcript shortly after muting.
+  void mute() => _userMuted = true;
+
+  /// Resumes forwarding the user's microphone audio to STT after [mute].
+  void unmute() => _userMuted = false;
 
   /// User cut-in (full-duplex barge-in, or a manual "stop talking" call in
   /// half-duplex): cancels the in-flight LLM/TTS work and returns to

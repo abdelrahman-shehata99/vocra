@@ -234,6 +234,60 @@ void main() {
     );
 
     test(
+      'mute stops mic frames reaching STT without changing turn state',
+      () async {
+        final h = Harness();
+        final states = <TurnState>[];
+        h.engine.turnState.listen(states.add);
+        await h.engine.startConversation();
+        await pump();
+
+        h.engine.mute();
+        expect(h.engine.isMuted, isTrue);
+        h.mic.emit(Uint8List.fromList([1]));
+        await pump(3);
+        expect(h.stt.sentAudio, isEmpty);
+        // Still listening — mute does not change turn state.
+        expect(states, [TurnState.listening]);
+
+        h.engine.unmute();
+        expect(h.engine.isMuted, isFalse);
+        final frame = Uint8List.fromList([2]);
+        h.mic.emit(frame);
+        await pump(3);
+        expect(h.stt.sentAudio, [frame]);
+      },
+    );
+
+    test(
+      'a user mute survives a full turn\'s internal mic-gate toggling',
+      () async {
+        // The engine flips _micForwardingEnabled off then on across a turn.
+        // A user mute must not be clobbered by that: after the turn drains and
+        // the engine re-enables forwarding, the mic is still muted.
+        final h = Harness();
+        await h.engine.startConversation();
+        await pump();
+
+        h.engine.mute();
+        // Run a complete turn (thinking -> speaking -> listening), which
+        // internally sets _micForwardingEnabled false then true again.
+        h.engine.sendText('hi');
+        await pump(5);
+        h.llm.pushToken('Hello! ');
+        await h.llm.endStream();
+        await pump(30);
+
+        // Post-turn: forwarding is re-enabled internally, but the user is
+        // still muted, so a fresh frame must NOT reach STT.
+        h.mic.emit(Uint8List.fromList([9]));
+        await pump(3);
+        expect(h.stt.sentAudio, isEmpty);
+        expect(h.engine.isMuted, isTrue);
+      },
+    );
+
+    test(
       'history trims oldest non-system messages, keeping the system prompt',
       () async {
         final h = Harness(maxHistoryMessages: 3);
