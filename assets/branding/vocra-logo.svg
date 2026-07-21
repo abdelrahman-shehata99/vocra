@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 56" width="230" height="56" role="img" aria-label="Vocra">
+  <defs>
+    <linearGradient id="vocraGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0,8) scale(0.8333)">
+    <circle cx="16" cy="24" r="9.5" fill="#22d3ee"/>
+    <path d="M 29 14 A 13 13 0 0 1 29 34" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 34.5 9 A 20 20 0 0 1 34.5 39" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+  </g>
+  <text x="58" y="39" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif" font-size="32" font-weight="700" letter-spacing="-1" fill="url(#vocraGradient)">Vocra</text>
+</svg>
