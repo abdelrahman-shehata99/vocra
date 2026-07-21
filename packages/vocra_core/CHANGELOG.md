@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.1
 
 First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 
