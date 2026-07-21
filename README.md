@@ -1,21 +1,31 @@
-# Vocra
+<p align="center">
+  <a href="https://www.vocra.cloud">
+    <img src="assets/branding/vocra-logo.svg" height="64" alt="Vocra">
+  </a>
+</p>
+
+<p align="center"><b>Give your app a voice your users can just talk to.</b></p>
 
 [![vocra](https://img.shields.io/pub/v/vocra.svg?label=vocra)](https://pub.dev/packages/vocra)
 [![vocra_core](https://img.shields.io/pub/v/vocra_core.svg?label=vocra_core)](https://pub.dev/packages/vocra_core)
 [![CI](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A voice AI SDK for Flutter: embed a spoken AI conversation in any Android/iOS
-app — user speaks → STT → LLM → spoken reply — with **all orchestration running
-on-device**. No server, no recurring backend cost; each app supplies its own
-provider API keys.
+**[www.vocra.cloud](https://www.vocra.cloud)** — a voice AI SDK for Flutter:
+embed a spoken AI conversation in any Android/iOS app — user speaks → STT → LLM
+→ spoken reply — with **all orchestration running on-device**. No server, no
+recurring backend cost; each app supplies its own provider API keys.
 
-- **LLM:** [Groq](https://groq.com) or [Gemini](https://ai.google.dev) (streaming)
+- **LLM:** [Groq](https://groq.com), [OpenAI](https://openai.com), [Gemini](https://ai.google.dev),
+  [xAI](https://x.ai), or [Z.ai](https://z.ai) (streaming), with typed model catalogs built in
 - **STT:** [Deepgram](https://deepgram.com) (streaming WebSocket)
 - **TTS:** [Deepgram](https://deepgram.com) or [ElevenLabs](https://elevenlabs.io)
 - **AI speaks first:** optional fixed or LLM-generated greeting
 - **Human feel:** optional natural-speech mode with markdown/emoji stripping and
   (on ElevenLabs `eleven_v3`) audio tags like `[laughs]`
+- **Full conversation control:** mute, interrupt, a live aggregated transcript,
+  session policies (max duration, silence timeout, end phrases), and a
+  `SessionReport` when it's over
 - **Half-duplex by default** (mic suspended while the AI speaks); optional
   full-duplex barge-in behind native echo cancellation
 

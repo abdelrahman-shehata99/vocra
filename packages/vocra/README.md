@@ -1,12 +1,35 @@
-# vocra
+<p align="center">
+  <a href="https://www.vocra.cloud">
+    <img src="https://raw.githubusercontent.com/abdelrahman-shehata99/vocra/main/assets/branding/vocra-logo.svg" height="64" alt="Vocra">
+  </a>
+</p>
 
-[![pub package](https://img.shields.io/pub/v/vocra.svg)](https://pub.dev/packages/vocra)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE)
+<p align="center"><b>Give your app a voice your users can just talk to.</b></p>
 
-**On-device voice AI for Flutter.** The user speaks, an AI replies out loud —
-speech-to-text → LLM → text-to-speech, all orchestrated on the device. No
-backend, no per-minute platform fees: each app brings its own provider API keys.
+<p align="center">
+  <a href="https://pub.dev/packages/vocra"><img src="https://img.shields.io/pub/v/vocra.svg" alt="pub package"></a>
+  <a href="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml"><img src="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
+  <img src="https://img.shields.io/badge/on--device-bring%20your%20own%20keys-22d3ee.svg" alt="on-device, bring your own keys">
+</p>
 
+<p align="center">
+  <a href="https://www.vocra.cloud">Website</a> ·
+  <a href="https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra/example">Example</a> ·
+  <a href="https://github.com/abdelrahman-shehata99/vocra">GitHub</a>
+</p>
+
+**Vocra** is the low-latency voice layer for Flutter: natural turn-taking,
+lifelike speech, and streaming replies — the user speaks, an AI replies out
+loud, speech-to-text → LLM → text-to-speech, all orchestrated **on-device**.
+No backend, no per-minute platform fees: each app brings its own provider API keys.
+
+`sub-second replies` &nbsp;·&nbsp; `bring your own keys` &nbsp;·&nbsp; `no backend` &nbsp;·&nbsp; `open source`
+
+- **Natural turn-taking** — Vocra knows when to listen, when to pause, and when
+  to jump in. Half-duplex by default (the mic is suspended while the AI talks,
+  so it never hears itself); optional full-duplex barge-in with native echo
+  cancellation.
 - **Pluggable providers** — LLM: Groq, OpenAI, Gemini, xAI, Z.ai · STT: Deepgram
   · TTS: Deepgram, ElevenLabs. Swap any of them in one line, with typed model &
   voice catalogs built in.
@@ -16,9 +39,6 @@ backend, no per-minute platform fees: each app brings its own provider API keys.
 - **Full conversation control** — mute, interrupt, a live aggregated transcript,
   session policies (max duration, silence timeout, end phrases, farewell), and a
   `SessionReport` when it's over.
-- **Half-duplex by default** (the mic is suspended while the AI talks, so it
-  never hears itself). Optional full-duplex barge-in with native echo
-  cancellation.
 
 ## Install
 

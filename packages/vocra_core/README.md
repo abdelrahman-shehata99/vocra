@@ -1,7 +1,15 @@
-# vocra_core
+<p align="center">
+  <a href="https://www.vocra.cloud">
+    <img src="https://raw.githubusercontent.com/abdelrahman-shehata99/vocra/main/assets/branding/vocra-logo.svg" height="48" alt="Vocra">
+  </a>
+</p>
 
-[![pub package](https://img.shields.io/pub/v/vocra_core.svg)](https://pub.dev/packages/vocra_core)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE)
+<p align="center"><b>The pure-Dart engine behind Vocra.</b></p>
+
+<p align="center">
+  <a href="https://pub.dev/packages/vocra_core"><img src="https://img.shields.io/pub/v/vocra_core.svg" alt="pub package"></a>
+  <a href="https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
+</p>
 
 Pure-Dart brain of **Vocra**: the conversation engine, sentence-by-sentence
 streaming TTS pipeline, half-duplex turn machine, typed model/voice catalogs,

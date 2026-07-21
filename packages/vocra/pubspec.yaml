@@ -1,12 +1,12 @@
 name: vocra
 description: >
-  On-device voice AI for Flutter: user speaks, AI replies out loud. Pluggable
-  LLM/STT/TTS (Groq, OpenAI, Gemini, Deepgram, ElevenLabs), greetings, natural
-  speech, and full conversation control — no backend required.
+  The voice layer for Flutter: talk to an AI that talks back — natural
+  turn-taking, lifelike speech, streaming replies, on-device with your own
+  provider keys.
 version: 0.2.0
 repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra
 issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
-homepage: https://github.com/abdelrahman-shehata99/vocra
+homepage: https://www.vocra.cloud
 topics:
   - voice
   - speech-to-text

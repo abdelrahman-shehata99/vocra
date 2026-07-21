@@ -32,3 +32,5 @@ First pub.dev release of the Vocra Flutter package (developed in-repo as
 ### Docs
 - iOS setup now documents the required `PERMISSION_MICROPHONE=1` Podfile macro —
   without it `permission_handler` never shows the mic prompt and `start()` fails.
+- Branded README with the Vocra logo, badges, and a vocra.cloud website link;
+  refreshed pubspec `homepage`/description to match.
