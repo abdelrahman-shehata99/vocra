@@ -8,7 +8,7 @@ Run from repo root (`vocra/`) unless noted.
 - `melos run test` — `dart test` for non-Flutter packages (vocra_core) + `flutter test` for
   Flutter packages (vocra), dispatched via melos `--dir-exists=test` filter.
 - Package-scoped alternative: `cd packages/vocra_core && dart test` /
-  `cd packages/vocra && flutter test` for faster iteration on one package.
-- Example app: `cd packages/vocra/example && flutter run` (needs a connected
+  `cd packages/vocra_flutter && flutter test` for faster iteration on one package.
+- Example app: `cd packages/vocra_flutter/example && flutter run` (needs a connected
   device/simulator; Test-keys flow lets you supply Groq/Deepgram keys at runtime).
 - `melos` itself must be globally activated once: `dart pub global activate melos`.

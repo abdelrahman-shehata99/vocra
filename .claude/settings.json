@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://pub.dev/packages/vocra_flutter)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://pub.dev/packages/vocra_core)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://pub.dev/packages/vocra)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://pub.dev/api/packages/vocra_flutter)",
+      "Bash(curl -s https://pub.dev/api/packages/vocra_core)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://pub.dev/api/packages/vocra)",
+      "Bash(curl -s https://pub.dev/api/packages/vocra_flutter)",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}

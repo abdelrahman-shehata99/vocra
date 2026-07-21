@@ -1,15 +1,15 @@
 #
-# Native AEC module for the vocra package (spec §9, T18 — optional).
+# Native AEC module for the vocra_flutter package (spec §9, T18 — optional).
 # v1's happy path does not require this podspec at all; it's only consulted
 # when an app's build picks up the package's ios/ directory, which only
 # happens once a consuming app actually links against it.
 #
 Pod::Spec.new do |s|
-  s.name             = 'vocra'
-  s.version          = '0.2.0'
-  s.summary          = 'Native AEC support for the vocra package.'
+  s.name             = 'vocra_flutter'
+  s.version          = '0.2.1'
+  s.summary          = 'Native AEC support for the vocra_flutter package.'
   s.description      = <<-DESC
-Optional native echo-cancellation mic capture for vocra's full-duplex mode.
+Optional native echo-cancellation mic capture for vocra_flutter's full-duplex mode.
                        DESC
   s.homepage         = 'https://github.com/abdelrahman-shehata99/vocra'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }

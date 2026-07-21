@@ -47,12 +47,12 @@ app.*.map.json
 # melos
 .melos_tool/
 
-# packages/vocra/{ios,android} are reserved for the optional native
+# packages/vocra_flutter/{ios,android} are reserved for the optional native
 # AEC module (spec §9, T18) and must stay empty until that work starts.
 # Running Flutter tooling against the package can spuriously scaffold these
 # as if it were a full app (Runner target, GeneratedPluginRegistrant) — keep
 # that out of version control even if it regenerates locally.
-packages/vocra/ios/Flutter/
-packages/vocra/ios/Runner/
-packages/vocra/android/app/
-packages/vocra/android/local.properties
+packages/vocra_flutter/ios/Flutter/
+packages/vocra_flutter/ios/Runner/
+packages/vocra_flutter/android/app/
+packages/vocra_flutter/android/local.properties

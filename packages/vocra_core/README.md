@@ -19,7 +19,7 @@ and ElevenLabs (TTS).
 This package has **no Flutter dependency** — it's plain Dart, fully unit
 testable without a device, and reusable from servers or CLIs. Flutter apps
 should depend on
-[`vocra`](https://pub.dev/packages/vocra) instead, which wires
+[`vocra_flutter`](https://pub.dev/packages/vocra_flutter) instead, which wires
 this engine to the microphone, speaker, and permissions (and re-exports all of
 `vocra_core`).
 
@@ -29,7 +29,7 @@ this engine to the microphone, speaker, and permissions (and re-exports all of
 dart pub add vocra_core
 ```
 
-Most apps want `vocra` instead; use `vocra_core` directly only when you
+Most apps want `vocra_flutter` instead; use `vocra_core` directly only when you
 provide your own `AudioSink` / `MicSource` (e.g. a server or custom pipeline).
 
 ## What's in here

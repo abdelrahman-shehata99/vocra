@@ -3,7 +3,7 @@
 /// Vocra embeds a spoken AI conversation — the user speaks, speech-to-text
 /// transcribes, an LLM replies, and text-to-speech speaks the reply — with all
 /// orchestration on-device. This package has **no Flutter dependency**; Flutter
-/// apps should depend on `vocra`, which wires this engine to the
+/// apps should depend on `vocra_flutter`, which wires this engine to the
 /// microphone, audio playback, and permissions.
 ///
 /// The entry points are [VoiceEngine] (the orchestrator) and [VocraConfig]

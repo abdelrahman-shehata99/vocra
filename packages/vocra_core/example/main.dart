@@ -1,7 +1,7 @@
 // A minimal, Flutter-free tour of the vocra_core config surface.
 //
 // vocra_core has no microphone or speaker of its own — those come from the
-// `AudioSink` / `MicSource` interfaces (implemented by the vocra package on a real
+// `AudioSink` / `MicSource` interfaces (implemented by vocra_flutter on a real
 // device). This example plugs in trivial stand-ins so it compiles and runs
 // anywhere. It only performs a real turn if GROQ_API_KEY and DEEPGRAM_API_KEY
 // are set in the environment; otherwise it just prints the wiring and exits.

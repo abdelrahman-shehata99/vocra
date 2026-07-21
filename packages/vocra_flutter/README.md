@@ -7,7 +7,7 @@
 <p align="center"><b>Give your app a voice your users can just talk to.</b></p>
 
 <p align="center">
-  <a href="https://pub.dev/packages/vocra"><img src="https://img.shields.io/pub/v/vocra.svg" alt="pub package"></a>
+  <a href="https://pub.dev/packages/vocra_flutter"><img src="https://img.shields.io/pub/v/vocra_flutter.svg" alt="pub package"></a>
   <a href="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml"><img src="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
   <img src="https://img.shields.io/badge/on--device-bring%20your%20own%20keys-22d3ee.svg" alt="on-device, bring your own keys">
@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://www.vocra.cloud">Website</a> ·
-  <a href="https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra/example">Example</a> ·
+  <a href="https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter/example">Example</a> ·
   <a href="https://github.com/abdelrahman-shehata99/vocra">GitHub</a>
 </p>
 
@@ -43,7 +43,7 @@ No backend, no per-minute platform fees: each app brings its own provider API ke
 ## Install
 
 ```sh
-flutter pub add vocra
+flutter pub add vocra_flutter
 ```
 
 Requires Flutter `>=3.44.0`, Dart `^3.12.0`. Android and iOS only.
@@ -89,7 +89,7 @@ end
 ## Quickstart
 
 ```dart
-import 'package:vocra/vocra.dart';
+import 'package:vocra_flutter/vocra_flutter.dart';
 
 final session = VocraSession(
   config: VocraConfig(

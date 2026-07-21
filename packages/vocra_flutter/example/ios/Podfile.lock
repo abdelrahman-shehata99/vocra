@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - vocra_flutter (0.2.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - vocra_flutter (from `.symlinks/plugins/vocra_flutter/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  vocra_flutter:
+    :path: ".symlinks/plugins/vocra_flutter/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  vocra_flutter: 884962f32c64bc5d7855a0f28a1fd63af34e5266
+
+PODFILE CHECKSUM: 7d7d8e5aace3351542d60d4be88df29ed6d323c4
+
+COCOAPODS: 1.16.2

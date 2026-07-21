@@ -37,4 +37,4 @@ jobs:
       - run: dart pub publish --dry-run
         working-directory: packages/vocra_core
       - run: flutter pub publish --dry-run
-        working-directory: packages/vocra
+        working-directory: packages/vocra_flutter

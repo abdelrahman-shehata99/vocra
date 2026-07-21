@@ -1,5 +1,5 @@
-name: vocra_example
-description: "Demo app + manual test harness for the vocra package (spec §10)."
+name: vocra_flutter_example
+description: "Demo app + manual test harness for vocra_flutter (spec §10)."
 publish_to: 'none'
 resolution: workspace
 
@@ -29,7 +29,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  vocra:
+  vocra_flutter:
     path: ../
 
   # The following adds the Cupertino Icons font to your application.

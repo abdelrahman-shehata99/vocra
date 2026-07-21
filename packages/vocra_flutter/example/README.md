@@ -4,18 +4,18 @@
   </a>
 </p>
 
-# vocra example
+# vocra_flutter example
 
-A runnable demo of [`vocra`](../): a key-entry screen (enter your Groq and
-Deepgram keys, with a "Test keys" check) and a conversation screen with a mic
-toggle, live transcript, turn-state indicator, and latency readout.
+A runnable demo of [`vocra_flutter`](../): a key-entry screen (enter your Groq
+and Deepgram keys, with a "Test keys" check) and a conversation screen with a
+mic toggle, live transcript, turn-state indicator, and latency readout.
 
 ## Run
 
 This example is a workspace member, so run it from a clone of the repo:
 
 ```sh
-cd packages/vocra/example
+cd packages/vocra_flutter/example
 flutter run
 ```
 

@@ -30,8 +30,8 @@ cost. Each host app supplies its own provider API keys (Groq for LLM, Deepgram f
 | `melos run format` | `dart format --set-exit-if-changed .` across all packages (check only, no auto-fix) |
 | `melos run test` | `dart test` (vocra_core) + `flutter test` (vocra) |
 | `cd packages/vocra_core && dart test` | Faster iteration on just the engine package |
-| `cd packages/vocra && flutter test` | Faster iteration on just the platform layer |
-| `cd packages/vocra/example && flutter run` | Run the demo app (needs device/simulator + a "Test keys" flow for Groq/Deepgram keys) |
+| `cd packages/vocra_flutter && flutter test` | Faster iteration on just the platform layer |
+| `cd packages/vocra_flutter/example && flutter run` | Run the demo app (needs device/simulator + a "Test keys" flow for Groq/Deepgram keys) |
 
 ## Architecture
 
@@ -43,11 +43,11 @@ packages/
 │   └── lib/src/
 │       ├── engine/      # VoiceEngine (orchestrator), TurnMachine, AudioQueue, SentenceSplitter
 │       ├── providers/   # GroqLlm, DeepgramStt, DeepgramTts + Llm/Stt/Tts interfaces
-│       ├── io/           # AudioSink / MicSource / KeyStore interfaces (implemented in vocra)
+│       ├── io/           # AudioSink / MicSource / KeyStore interfaces (implemented in vocra_flutter)
 │       ├── models/       # VocraConfig, VoiceError, TurnState, TurnMetrics, ChatMessage, TranscriptEvent
 │       ├── transport/    # SseParser (Groq streaming)
 │       └── util/         # Cancellation
-└── vocra/   # Flutter plugin layer: mic, audio playback, permissions, VocraSession
+└── vocra_flutter/   # Flutter plugin layer: mic, audio playback, permissions, VocraSession
     ├── lib/src/          # FlutterMicSource, FlutterAudioSink, NativeAecMicSource, SecureKeyStore,
     │                     # AudioSessionSetup, MicPermission, VocraSession (app-facing API)
     ├── ios/Classes/      # AecAudioEngine.swift (native echo cancellation, optional full-duplex)
@@ -92,7 +92,7 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 - [packages/vocra_core/lib/src/engine/audio_queue.dart](packages/vocra_core/lib/src/engine/audio_queue.dart) — ordered TTS clip playback + interruption
 - [packages/vocra_core/lib/src/models/voice_config.dart](packages/vocra_core/lib/src/models/voice_config.dart) — public config surface (`DuplexMode`, `BargeInSensitivity`, provider wiring)
 - [packages/vocra_core/lib/src/models/voice_error.dart](packages/vocra_core/lib/src/models/voice_error.dart) — typed error hierarchy
-- [packages/vocra/lib/src/voice_session.dart](packages/vocra/lib/src/voice_session.dart) — the app-facing entry point (`VocraSession`)
+- [packages/vocra_flutter/lib/src/vocra_session.dart](packages/vocra_flutter/lib/src/vocra_session.dart) — the app-facing entry point (`VocraSession`)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design rationale for non-obvious spec deviations
 
 ## Development Conventions
@@ -105,7 +105,7 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 ### Testing
 - `vocra_core`: `package:test` + `mocktail` for mocking; `stream_channel` /
   `test/providers/fake_websocket_channel.dart` fakes for WebSocket-based providers (Deepgram).
-- `vocra`: `flutter_test`.
+- `vocra_flutter`: `flutter_test`.
 - Test files mirror `lib/src/...` structure under `test/...`.
 - Non-obvious behavioral decisions get a **dedicated named test** describing the decision (e.g.
   `deepgram_stt_test.dart`'s *"maps speech_final ... not raw is_final"*) rather than being
@@ -136,8 +136,8 @@ build spec, with rationale, so you don't need to rediscover it from the diff.
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Touching turn-state, `AudioQueue`, Deepgram final-transcript mapping, `VocraSession` re-entrancy,/ or full-duplex/native-AEC logic |
 | [packages/vocra_core/README.md](packages/vocra_core/README.md) | Working on the engine/provider-adapter package specifically |
-| [packages/vocra/README.md](packages/vocra/README.md) | Working on the Flutter platform layer specifically |
-| [packages/vocra/example/README.md](packages/vocra/example/README.md) | Running/modifying the demo app |
+| [packages/vocra_flutter/README.md](packages/vocra_flutter/README.md) | Working on the Flutter platform layer specifically |
+| [packages/vocra_flutter/example/README.md](packages/vocra_flutter/example/README.md) | Running/modifying the demo app |
 
 ## Git Workflow
 

@@ -1,7 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:vocra/vocra.dart';
+import 'package:vocra_flutter/vocra_flutter.dart';
 
 class _MockStorage extends Mock implements FlutterSecureStorage {}
 

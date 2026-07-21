@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-import 'package:vocra/vocra.dart';
+import 'package:vocra_flutter/vocra_flutter.dart';
 
 class _MockPermissionHandler extends Mock
     with MockPlatformInterfaceMixin

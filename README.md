@@ -6,7 +6,7 @@
 
 <p align="center"><b>Give your app a voice your users can just talk to.</b></p>
 
-[![vocra](https://img.shields.io/pub/v/vocra.svg?label=vocra)](https://pub.dev/packages/vocra)
+[![vocra_flutter](https://img.shields.io/pub/v/vocra_flutter.svg?label=vocra_flutter)](https://pub.dev/packages/vocra_flutter)
 [![vocra_core](https://img.shields.io/pub/v/vocra_core.svg?label=vocra_core)](https://pub.dev/packages/vocra_core)
 [![CI](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -35,11 +35,11 @@ Providers are pluggable behind interfaces (`LlmProvider`, `TtsProvider`,
 ## Install
 
 ```sh
-flutter pub add vocra
+flutter pub add vocra_flutter
 ```
 
 ```dart
-import 'package:vocra/vocra.dart';
+import 'package:vocra_flutter/vocra_flutter.dart';
 
 final session = VocraSession(
   config: VocraConfig(
@@ -57,7 +57,7 @@ session.turnState.listen(updateUi);
 await session.start();
 ```
 
-See the [`vocra` README](packages/vocra/README.md) for platform
+See the [`vocra_flutter` README](packages/vocra_flutter/README.md) for platform
 setup (mic permissions) and the full API.
 
 ## Packages
@@ -68,12 +68,12 @@ A [melos](https://melos.invertase.dev) monorepo using Dart's native
 ```
 packages/
   vocra_core/      pure-Dart engine, provider adapters, transport — no Flutter import
-  vocra/   Flutter plugin layer: mic, audio playback, permissions, VocraSession
+  vocra_flutter/   Flutter plugin layer: mic, audio playback, permissions, VocraSession
     example/       runnable demo app
 ```
 
 - [`vocra_core`](packages/vocra_core/README.md) — the engine (usable without Flutter)
-- [`vocra`](packages/vocra/README.md) — the app-facing Flutter layer
+- [`vocra_flutter`](packages/vocra_flutter/README.md) — the app-facing Flutter layer
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design rationale for the
   non-obvious parts (turn-state, audio ordering, greeting, full-duplex AEC)
 
@@ -101,8 +101,8 @@ before the Flutter package's dependency resolves for consumers):
 dart run melos run analyze && dart run melos run test
 ( cd packages/vocra_core    && dart pub publish )
 # wait until vocra_core is live on pub.dev, then:
-( cd packages/vocra && flutter pub publish )
-git tag v0.2.0 && git push origin main v0.2.0
+( cd packages/vocra_flutter && flutter pub publish )
+git tag v0.2.1 && git push origin main v0.2.1
 ```
 
 ## License
