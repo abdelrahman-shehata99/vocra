@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.vocra.voice_flutter"
-version = "0.2.0"
+version = "0.2.1"
 
 android {
     namespace = "com.vocra.voice_flutter"
