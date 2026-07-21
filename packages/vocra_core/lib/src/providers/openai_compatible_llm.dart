@@ -36,6 +36,11 @@ abstract class OpenAiCompatibleLlm implements LlmProvider {
   /// Provider name used in [ProviderError] (e.g. `'groq'`, `'openai'`).
   String get providerName;
 
+  /// The request-body field name for the token limit. Defaults to the modern
+  /// `max_completion_tokens`; providers that only accept the older `max_tokens`
+  /// (e.g. Z.ai) override this.
+  String get maxTokensField => 'max_completion_tokens';
+
   /// Extra top-level fields merged into the request body. Default none;
   /// subclasses override to add provider-specific parameters (e.g. Groq's
   /// `reasoning_effort`). Keys here win over the defaults built below.
@@ -114,7 +119,7 @@ abstract class OpenAiCompatibleLlm implements LlmProvider {
           'messages': history.map(_encodeMessage).toList(),
           'stream': true,
           'temperature': temperature,
-          'max_completion_tokens': maxTokens,
+          maxTokensField: maxTokens,
           ...extraRequestFields,
         },
         options: Options(
