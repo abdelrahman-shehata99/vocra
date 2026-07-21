@@ -8,10 +8,24 @@
 ///
 /// The entry points are [VoiceEngine] (the orchestrator) and [VocraConfig]
 /// (the config surface). Providers are pluggable behind three interfaces —
-/// [LlmProvider], [SttTransport], and [TtsProvider] — with Groq/Gemini (LLM)
-/// and Deepgram/ElevenLabs (STT/TTS) adapters included. Every provider and
-/// engine failure surfaces as a typed [VoiceError], including mid-stream drops.
+/// [LlmProvider], [SttTransport], and [TtsProvider] — with Groq/OpenAI/Gemini/
+/// xAI/Z.ai (LLM) and Deepgram/ElevenLabs (STT/TTS) adapters included. Ready-to-
+/// pick model and voice catalogs ([GroqModel], [DeepgramVoice], …) power the
+/// [VocraLlm]/[VocraTts]/[VocraStt] factories. Every provider and engine failure
+/// surfaces as a typed [VoiceError], including mid-stream drops.
 library;
+
+export 'src/catalog/catalog_entry.dart';
+export 'src/catalog/vendors.dart';
+export 'src/catalog/groq_models.dart';
+export 'src/catalog/openai_models.dart';
+export 'src/catalog/gemini_models.dart';
+export 'src/catalog/xai_models.dart';
+export 'src/catalog/zai_models.dart';
+export 'src/catalog/deepgram_voices.dart';
+export 'src/catalog/elevenlabs_voices.dart';
+export 'src/catalog/elevenlabs_models.dart';
+export 'src/catalog/deepgram_stt_models.dart';
 
 export 'src/models/chat_message.dart';
 export 'src/models/turn_state.dart';
