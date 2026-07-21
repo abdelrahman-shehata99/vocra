@@ -1,3 +1,4 @@
+import 'llm_provider.dart';
 import 'openai_compatible_llm.dart';
 
 /// Implements [LlmProvider] against Groq's OpenAI-compatible chat-completions

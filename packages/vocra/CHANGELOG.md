@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.1
 
 First pub.dev release of the Vocra Flutter package (developed in-repo as
 `voice_flutter` through 0.1.0, renamed to `vocra`).

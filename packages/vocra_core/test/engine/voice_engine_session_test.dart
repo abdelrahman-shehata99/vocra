@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:vocra_core/vocra_core.dart';
@@ -172,6 +173,40 @@ void main() {
       expect(states, [TurnState.listening]);
       expect(h.llm.historySnapshots, isEmpty);
     });
+
+    test(
+      'restarting after ending mid-turn restores mic forwarding (no deaf mic)',
+      () async {
+        // Ending while a turn is in flight (mic paused, forwarding gated off)
+        // skips the drain path that normally re-enables forwarding. A fresh
+        // startConversation must reset the gate or the new session never
+        // forwards a single frame to STT.
+        final h = Harness();
+        await h.engine.startConversation();
+        await pump();
+
+        // Begin a turn and end the session mid-turn (LLM still streaming).
+        h.stt.emitFinal('hello');
+        await pump(5);
+        h.llm.pushToken('thinking… ');
+        await pump(3);
+        await h.engine.stopConversation();
+        await h.llm.endStream(); // let the cancelled turn's stream close
+        await pump(5);
+
+        await h.engine.startConversation();
+        await pump();
+
+        final frame = Uint8List.fromList([7]);
+        h.mic.emit(frame);
+        await pump(3);
+        expect(
+          h.stt.sentAudio,
+          contains(frame),
+          reason: 'mic frames must reach STT after a restart',
+        );
+      },
+    );
 
     test(
       'startConversation clears the previous session record and mute',

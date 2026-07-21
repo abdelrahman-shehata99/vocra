@@ -174,7 +174,7 @@ class _KeyEntryScreenState extends State<KeyEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Voice AI SDK Demo')),
+      appBar: AppBar(title: const Text('Vocra SDK Demo')),
       body: _loadingStoredKeys
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(

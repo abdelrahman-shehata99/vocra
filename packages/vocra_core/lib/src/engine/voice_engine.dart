@@ -169,6 +169,10 @@ class VoiceEngine {
     _sessionMetrics.clear();
     _aggregator.clear();
     _userMuted = false;
+    // Ending a session mid-turn skips the drain/interrupt paths that normally
+    // restore this gate, so it can be left false — reset it or the restarted
+    // session would never forward a single mic frame to STT (deaf mic).
+    _micForwardingEnabled = true;
     _endingFuture = null;
     _startedAt = DateTime.now();
 

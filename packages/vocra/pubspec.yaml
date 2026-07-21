@@ -3,7 +3,7 @@ description: >
   The voice layer for Flutter: talk to an AI that talks back — natural
   turn-taking, lifelike speech, streaming replies, on-device with your own
   provider keys.
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra
 issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
 homepage: https://www.vocra.cloud

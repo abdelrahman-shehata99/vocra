@@ -14,8 +14,10 @@ void main() {
     test('openAi returns an OpenAiLlm', () {
       expect(VocraLlm.openAi(apiKey: 'k'), isA<OpenAiLlm>());
     });
-    test('gemini returns a GeminiLlm', () {
-      expect(VocraLlm.gemini(apiKey: 'k'), isA<GeminiLlm>());
+    test('gemini returns a GeminiLlm with the catalog model id', () {
+      final llm = VocraLlm.gemini(apiKey: 'k', model: GeminiModel.pro25);
+      expect(llm, isA<GeminiLlm>());
+      expect((llm as GeminiLlm).model, 'gemini-2.5-pro');
     });
     test('xai returns an XaiLlm', () {
       expect(VocraLlm.xai(apiKey: 'k'), isA<XaiLlm>());
