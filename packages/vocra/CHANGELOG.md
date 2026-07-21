@@ -13,8 +13,9 @@ First pub.dev release of the Vocra Flutter package (developed in-repo as
 - `conversation`, `endSession()`, `sessionEnded`, `lastReport` — full
   conversation retrieval and a `SessionReport` on every end path.
 - `mute()` / `unmute()` / `isMuted` and a surfaced `interrupt()`.
-- Surfaces the new `vocra_core` 0.2.0 features (provider facades, structured
-  prompts, greeting, natural speech, session policies) through the app API.
+- Surfaces the new `vocra_core` 0.2.0 features (provider facades, typed model/
+  voice catalogs, xAI + Z.ai LLMs, structured prompts, greeting, natural speech,
+  session policies) through the app API.
 
 ### Fixed
 - Mic capture falls back to the hardware sample rate (48/44.1 kHz) with

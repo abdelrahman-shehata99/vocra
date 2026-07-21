@@ -7,7 +7,11 @@ First pub.dev release (developed in-repo as `voice_core` through 0.1.0).
 ### Added
 - Provider facades `VocraLlm` / `VocraTts` / `VocraStt` (e.g.
   `VocraLlm.openAi(apiKey: ...)`); new `OpenAiLlm` + shared
-  `OpenAiCompatibleLlm` base.
+  `OpenAiCompatibleLlm` base, plus `XaiLlm` (Grok) and `ZaiLlm` (GLM) adapters.
+- Typed model/voice catalogs picked by the facades: `GroqModel`, `OpenAiModel`,
+  `GeminiModel`, `XaiModel`, `ZaiModel`, `DeepgramVoice`, `ElevenLabsVoice`,
+  `ElevenLabsModel`, `DeepgramSttModel` — each with `values`, `.custom(id)`, and
+  a `ModelTier`; plus `LlmVendor`/`TtsVendor`/`SttVendor` enums for pickers.
 - `VocraPrompt` structured system prompts (`sections`, `json`, `jsonText`) as an
   alternative to `VocraConfig.systemPrompt`.
 - Conversation control & retrieval: `conversation`, `messages` (live aggregated

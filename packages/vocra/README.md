@@ -7,8 +7,9 @@
 speech-to-text → LLM → text-to-speech, all orchestrated on the device. No
 backend, no per-minute platform fees: each app brings its own provider API keys.
 
-- **Pluggable providers** — LLM: Groq, OpenAI, Gemini · STT: Deepgram ·
-  TTS: Deepgram, ElevenLabs. Swap any of them in one line.
+- **Pluggable providers** — LLM: Groq, OpenAI, Gemini, xAI, Z.ai · STT: Deepgram
+  · TTS: Deepgram, ElevenLabs. Swap any of them in one line, with typed model &
+  voice catalogs built in.
 - **AI speaks first** — an optional greeting (fixed or LLM-generated).
 - **Human feel** — natural-speech mode for brief, spoken-style replies;
   `[laughs]`-style audio tags on ElevenLabs v3.
@@ -81,18 +82,39 @@ That's the whole surface. Pick providers with the `VocraLlm` / `VocraTts` /
 
 ## Providers
 
-| Kind | Factory | Notes |
+| Kind | Factory | Catalog / notes |
 |---|---|---|
-| LLM | `VocraLlm.groq(apiKey:)` | default `openai/gpt-oss-20b` |
-| LLM | `VocraLlm.openAi(apiKey:)` | default `gpt-4.1-mini` |
-| LLM | `VocraLlm.gemini(apiKey:)` | default `gemini-2.5-flash` |
-| STT | `VocraStt.deepgram(apiKey:, language:)` | streaming; `model: 'nova-3'` for multilingual |
-| TTS | `VocraTts.deepgram(apiKey:, voice:)` | Aura voices |
-| TTS | `VocraTts.elevenLabs(apiKey:, model:)` | `model: 'eleven_v3'` unlocks `[laughs]` tags |
+| LLM | `VocraLlm.groq(apiKey:, model:)` | `GroqModel` — default GPT-OSS 20B |
+| LLM | `VocraLlm.openAi(apiKey:, model:)` | `OpenAiModel` — default GPT-4.1 Mini |
+| LLM | `VocraLlm.gemini(apiKey:, model:)` | `GeminiModel` — default 2.5 Flash |
+| LLM | `VocraLlm.xai(apiKey:, model:)` | `XaiModel` — Grok |
+| LLM | `VocraLlm.zai(apiKey:, model:)` | `ZaiModel` — GLM |
+| STT | `VocraStt.deepgram(apiKey:, model:, language:)` | `DeepgramSttModel` (nova-2 / nova-3) |
+| TTS | `VocraTts.deepgram(apiKey:, voice:)` | `DeepgramVoice` (12 Aura voices) |
+| TTS | `VocraTts.elevenLabs(apiKey:, voice:, model:)` | `ElevenLabsVoice` / `ElevenLabsModel` (v3 = `[laughs]` tags) |
+
+### Model & voice catalogs
+
+Every provider ships a typed catalog, so you never hand-maintain model lists.
+Pick a constant, enumerate `.values` for a dropdown, or use `.custom('id')` for
+anything newer than the SDK:
+
+```dart
+llm: VocraLlm.xai(apiKey: xaiKey, model: XaiModel.grok45),
+tts: VocraTts.elevenLabs(apiKey: elKey, voice: ElevenLabsVoice.rachel),
+
+// Build a picker straight from the catalog:
+for (final m in GroqModel.values) Text('${m.displayName} — ${m.tier?.displayName}');
+// Or an id the catalog doesn't list yet:
+llm: VocraLlm.openAi(apiKey: key, model: const OpenAiModel.custom('gpt-5')),
+```
+
+Every catalog entry is a `CatalogEntry` (`id`, `displayName`, `note`); model
+catalogs also carry a `ModelTier` (budget / balanced / flagship).
 
 Need a custom base URL or client? Construct the underlying adapter
-(`GroqLlm`, `OpenAiLlm`, `DeepgramTts`, …) directly — they satisfy the same
-interfaces and slot into `VocraConfig` too.
+(`GroqLlm`, `OpenAiLlm`, `XaiLlm`, `ZaiLlm`, `DeepgramTts`, …) directly — they
+satisfy the same interfaces and slot into `VocraConfig` too.
 
 ## Structured prompts
 

@@ -4,8 +4,9 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE)
 
 Pure-Dart brain of **Vocra**: the conversation engine, sentence-by-sentence
-streaming TTS pipeline, half-duplex turn machine, and provider adapters for
-Groq/Gemini (LLM), Deepgram (STT/TTS), and ElevenLabs (TTS).
+streaming TTS pipeline, half-duplex turn machine, typed model/voice catalogs,
+and provider adapters for Groq/OpenAI/Gemini/xAI/Z.ai (LLM), Deepgram (STT/TTS),
+and ElevenLabs (TTS).
 
 This package has **no Flutter dependency** — it's plain Dart, fully unit
 testable without a device, and reusable from servers or CLIs. Flutter apps
