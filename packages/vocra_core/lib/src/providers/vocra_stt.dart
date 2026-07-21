@@ -1,3 +1,4 @@
+import '../catalog/deepgram_stt_models.dart';
 import 'deepgram_stt.dart';
 import 'stt_transport.dart';
 
@@ -12,17 +13,17 @@ import 'stt_transport.dart';
 /// [SttTransport].
 abstract final class VocraStt {
   /// Deepgram streaming STT. [language] is an optional BCP-47 code (omit for
-  /// the model default); consider `model: 'nova-3'` for multilingual use.
+  /// the model default; [DeepgramSttModel.nova3] is best for multilingual).
   /// [endpointing] is the silence-after-speech before finalizing — lower is
   /// snappier but risks cutting off mid-utterance pauses.
   static SttTransport deepgram({
     required String apiKey,
-    String model = 'nova-2',
+    DeepgramSttModel model = DeepgramSttModel.nova2,
     String? language,
     Duration endpointing = const Duration(milliseconds: 300),
   }) => DeepgramStt(
     apiKey: apiKey,
-    model: model,
+    model: model.id,
     language: language,
     endpointing: endpointing,
   );

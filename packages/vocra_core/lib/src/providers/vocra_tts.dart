@@ -1,3 +1,6 @@
+import '../catalog/deepgram_voices.dart';
+import '../catalog/elevenlabs_models.dart';
+import '../catalog/elevenlabs_voices.dart';
 import 'deepgram_tts.dart';
 import 'elevenlabs_tts.dart';
 import 'tts_provider.dart';
@@ -5,32 +8,34 @@ import 'tts_provider.dart';
 /// Ready-made text-to-speech providers, one factory per service:
 ///
 /// ```dart
-/// tts: VocraTts.elevenLabs(apiKey: elevenLabsKey),
+/// tts: VocraTts.elevenLabs(apiKey: elevenLabsKey, voice: ElevenLabsVoice.sarah),
 /// ```
 ///
-/// For advanced knobs (custom base URL, injected Dio) construct [DeepgramTts]
-/// or [ElevenLabsTts] directly — they implement the same [TtsProvider].
+/// Pick a [voice]/[model] from the catalogs (e.g. `DeepgramVoice.values`,
+/// `ElevenLabsVoice.custom('id')`). For advanced knobs (custom base URL,
+/// injected Dio) construct [DeepgramTts] or [ElevenLabsTts] directly.
 abstract final class VocraTts {
-  /// Deepgram Aura. [voice] is the Aura voice model, e.g. `'aura-asteria-en'`.
+  /// Deepgram Aura.
   static TtsProvider deepgram({
     required String apiKey,
-    String voice = 'aura-asteria-en',
-  }) => DeepgramTts(apiKey: apiKey, model: voice);
+    DeepgramVoice voice = DeepgramVoice.asteria,
+  }) => DeepgramTts(apiKey: apiKey, model: voice.id);
 
-  /// ElevenLabs. Use `model: 'eleven_v3'` to enable audio tags like `[laughs]`
-  /// (more expressive, higher latency); the default flash model is fastest.
+  /// ElevenLabs. Use `model: ElevenLabsModel.v3` to enable audio tags like
+  /// `[laughs]` (more expressive, higher latency); the default flash model is
+  /// fastest.
   static TtsProvider elevenLabs({
     required String apiKey,
-    String voiceId = 'EXAVITQu4vr4xnSDxMaL',
-    String model = 'eleven_flash_v2_5',
+    ElevenLabsVoice voice = ElevenLabsVoice.sarah,
+    ElevenLabsModel model = ElevenLabsModel.flashV25,
     double stability = 0.5,
     double similarityBoost = 0.75,
     double? style,
     bool? speakerBoost,
   }) => ElevenLabsTts(
     apiKey: apiKey,
-    voiceId: voiceId,
-    modelId: model,
+    voiceId: voice.id,
+    modelId: model.id,
     stability: stability,
     similarityBoost: similarityBoost,
     style: style,
