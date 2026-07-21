@@ -30,13 +30,32 @@ Requires Flutter `>=3.44.0`, Dart `^3.12.0`. Android and iOS only.
 
 ## Platform setup
 
-**iOS** (`ios/Runner/Info.plist`):
+**iOS** — add the mic usage string to `ios/Runner/Info.plist`:
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
 <string>This app uses the microphone so you can talk to the AI assistant.</string>
 <key>UIBackgroundModes</key>
 <array><string>audio</string></array>
+```
+
+…and enable the microphone permission in `permission_handler` by adding this to
+the `post_install` block of your `ios/Podfile`. **This is required**: without
+it, iOS never shows the mic prompt and `session.start()` fails with a permission
+`ConfigError`.
+
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_MICROPHONE=1',
+      ]
+    end
+  end
+end
 ```
 
 **Android** (`android/app/src/main/AndroidManifest.xml`):

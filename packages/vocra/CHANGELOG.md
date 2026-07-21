@@ -28,3 +28,7 @@ First pub.dev release of the Vocra Flutter package (developed in-repo as
   (`import 'package:vocra/vocra.dart'`).
 - `VoiceSession` → `VocraSession`, `VoiceConfig` → `VocraConfig`.
 - Depends on `vocra_core: ^0.2.0`.
+
+### Docs
+- iOS setup now documents the required `PERMISSION_MICROPHONE=1` Podfile macro —
+  without it `permission_handler` never shows the mic prompt and `start()` fails.
