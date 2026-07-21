@@ -22,7 +22,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  vocra_core: ^0.2.0
+  vocra_core: ^0.2.1
   just_audio: ^0.10.6
   record: ^7.1.1
   audio_session: ^0.2.4
