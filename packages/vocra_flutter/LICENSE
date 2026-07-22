@@ -1,21 +1,32 @@
-MIT License
+Copyright (c) 2026 Abdelrahman Shehata. All rights reserved.
 
-Copyright (c) 2026 Abdelrahman Shehata
+This software, including its source code, object code, and all associated
+files (collectively, the "Software"), is the proprietary and confidential
+property of Abdelrahman Shehata ("the Author"). The Software is NOT open
+source and is NOT free software.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+NO LICENSE OR RIGHT IS GRANTED. No person or entity is granted any license,
+right, or permission to use, copy, reproduce, modify, adapt, translate,
+merge, publish, distribute, sublicense, sell, lease, rent, reverse engineer,
+decompile, disassemble, or create derivative works of the Software, in whole
+or in part, by any means or in any form.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This restriction applies regardless of how the Software or its source code is
+obtained, including but not limited to access through a package registry
+(such as pub.dev), a source-code repository, a distributed application
+bundle, or any other channel. The mere fact that the source code is
+technically accessible, viewable, or downloadable does NOT grant any right to
+use it. All rights are expressly reserved by the Author.
+
+Any use of the Software not expressly authorized in writing by the Author is
+strictly prohibited and constitutes a violation of the Author's copyright and
+other intellectual-property rights. Unauthorized use, reproduction, or
+distribution may result in civil and criminal liability and will be enforced
+to the maximum extent permitted by law.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

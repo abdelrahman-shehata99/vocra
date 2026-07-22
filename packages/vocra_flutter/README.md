@@ -8,8 +8,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/vocra_flutter"><img src="https://img.shields.io/pub/v/vocra_flutter.svg" alt="pub package"></a>
-  <a href="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml"><img src="https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-red.svg" alt="license: proprietary"></a>
   <img src="https://img.shields.io/badge/on--device-bring%20your%20own%20keys-22d3ee.svg" alt="on-device, bring your own keys">
 </p>
 
@@ -211,4 +210,7 @@ Per-turn latency (`ttft`, `timeToFirstVoice`, `total`, …) arrives as
 
 ## License
 
-MIT — see [LICENSE](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE).
+**Proprietary — © 2026 Abdelrahman Shehata. All rights reserved.**
+This is not open-source software. No license or right to use, copy, modify, or
+distribute the code is granted, whether or not the source is accessible. See
+[LICENSE](LICENSE).

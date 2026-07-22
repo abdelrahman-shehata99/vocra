@@ -9,7 +9,7 @@
 [![vocra_flutter](https://img.shields.io/pub/v/vocra_flutter.svg?label=vocra_flutter)](https://pub.dev/packages/vocra_flutter)
 [![vocra_core](https://img.shields.io/pub/v/vocra_core.svg?label=vocra_core)](https://pub.dev/packages/vocra_core)
 [![CI](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-shehata99/vocra/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![license: proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
 
 **[www.vocra.cloud](https://www.vocra.cloud)** — a voice AI SDK for Flutter:
 embed a spoken AI conversation in any Android/iOS app — user speaks → STT → LLM
@@ -94,4 +94,7 @@ dart run melos run test      # dart test (vocra_core) + flutter test (Flutter pa
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**Proprietary — © 2026 Abdelrahman Shehata. All rights reserved.**
+This is not open-source software. No license or right to use, copy, modify, or
+distribute the code is granted, whether or not the source is accessible. See
+[LICENSE](LICENSE).

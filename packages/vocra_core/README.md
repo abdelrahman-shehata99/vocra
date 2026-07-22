@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/vocra_core"><img src="https://img.shields.io/pub/v/vocra_core.svg" alt="pub package"></a>
-  <a href="https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-red.svg" alt="license: proprietary"></a>
 </p>
 
 Pure-Dart brain of **Vocra**: the conversation engine, sentence-by-sentence
@@ -80,4 +80,7 @@ interrupts, and 401/429/5xx/network-drop error mapping.
 
 ## License
 
-MIT — see [LICENSE](https://github.com/abdelrahman-shehata99/vocra/blob/main/LICENSE).
+**Proprietary — © 2026 Abdelrahman Shehata. All rights reserved.**
+This is not open-source software. No license or right to use, copy, modify, or
+distribute the code is granted, whether or not the source is accessible. See
+[LICENSE](LICENSE).

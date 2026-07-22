@@ -4,8 +4,8 @@ description: >
   to TTS) with pluggable Groq, OpenAI, Gemini, xAI, Z.ai, Deepgram, and
   ElevenLabs providers.
 version: 0.2.1
-repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_core
-issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
+repository: https://github.com/abdelrahman-shehata99/vocra-demo
+issue_tracker: https://github.com/abdelrahman-shehata99/vocra-demo/issues
 homepage: https://www.vocra.cloud
 topics:
   - voice
