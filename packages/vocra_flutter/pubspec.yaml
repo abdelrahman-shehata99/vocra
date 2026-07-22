@@ -4,7 +4,7 @@ description: >
   turn-taking, lifelike speech, streaming replies, on-device with your own
   provider keys.
 version: 0.2.1
-repository: https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter
+repository: https://github.com/abdelrahman-shehata99/vocra-demo
 issue_tracker: https://github.com/abdelrahman-shehata99/vocra/issues
 homepage: https://www.vocra.cloud
 topics:

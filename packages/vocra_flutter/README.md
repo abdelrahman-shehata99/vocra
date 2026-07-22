@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://www.vocra.cloud">
-    <img src="https://raw.githubusercontent.com/abdelrahman-shehata99/vocra/main/assets/branding/vocra-logo.svg" height="64" alt="Vocra">
+    <img src="https://raw.githubusercontent.com/abdelrahman-shehata99/vocra/main/assets/branding/vocra-logo.png" height="64" alt="Vocra">
   </a>
 </p>
 
@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="https://www.vocra.cloud">Website</a> ·
-  <a href="https://github.com/abdelrahman-shehata99/vocra/tree/main/packages/vocra_flutter/example">Example</a> ·
-  <a href="https://github.com/abdelrahman-shehata99/vocra">GitHub</a>
+  <a href="https://github.com/abdelrahman-shehata99/vocra-demo">Example</a> ·
+  <a href="https://github.com/abdelrahman-shehata99/vocra-demo">GitHub</a>
 </p>
 
 **Vocra** is the low-latency voice layer for Flutter: natural turn-taking,

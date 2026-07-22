@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://www.vocra.cloud">
-    <img src="assets/branding/vocra-logo.svg" height="64" alt="Vocra">
+    <img src="https://raw.githubusercontent.com/abdelrahman-shehata99/vocra/main/assets/branding/vocra-logo.png" height="64" alt="Vocra">
   </a>
 </p>
 
