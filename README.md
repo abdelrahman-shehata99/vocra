@@ -92,19 +92,6 @@ dart run melos run format    # check formatting across all packages
 dart run melos run test      # dart test (vocra_core) + flutter test (Flutter packages)
 ```
 
-## Releasing
-
-Both packages version in lockstep. Publish core first (pub.dev must have it
-before the Flutter package's dependency resolves for consumers):
-
-```sh
-dart run melos run analyze && dart run melos run test
-( cd packages/vocra_core    && dart pub publish )
-# wait until vocra_core is live on pub.dev, then:
-( cd packages/vocra_flutter && flutter pub publish )
-git tag v0.2.1 && git push origin main v0.2.1
-```
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
