@@ -53,6 +53,9 @@ app.*.map.json
 # as if it were a full app (Runner target, GeneratedPluginRegistrant) — keep
 # that out of version control even if it regenerates locally.
 packages/vocra_flutter/ios/Flutter/
+.claude
+.serena
+.github
 packages/vocra_flutter/ios/Runner/
 packages/vocra_flutter/android/app/
 packages/vocra_flutter/android/local.properties
