@@ -56,6 +56,7 @@ packages/vocra_flutter/ios/Flutter/
 .claude
 .serena
 .github
+.docs
 packages/vocra_flutter/ios/Runner/
 packages/vocra_flutter/android/app/
 packages/vocra_flutter/android/local.properties
