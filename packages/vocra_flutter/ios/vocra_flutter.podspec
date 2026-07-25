@@ -6,7 +6,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'vocra_flutter'
-  s.version          = '0.2.1'
+  s.version          = '0.2.2'
   s.summary          = 'Native AEC support for the vocra_flutter package.'
   s.description      = <<-DESC
 Optional native echo-cancellation mic capture for vocra_flutter's full-duplex mode.
@@ -15,7 +15,7 @@ Optional native echo-cancellation mic capture for vocra_flutter's full-duplex mo
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Abdelrahman Shehata' => 'admin@istoria.app' }
   s.source           = { :path => '.' }
-  s.source_files     = 'Classes/**/*'
+  s.source_files     = 'vocra_flutter/Sources/vocra_flutter/**/*.swift'
   s.dependency 'Flutter'
   s.platform = :ios, '13.0'
 

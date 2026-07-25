@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.2
+
+Packaging and metadata only — no Dart API or behavior changes.
+
+### Added
+- Swift Package Manager support on iOS: `ios/vocra_flutter/Package.swift`, with the
+  native AEC sources moved to `ios/vocra_flutter/Sources/vocra_flutter/`. The
+  CocoaPods podspec is still maintained, so apps that have not enabled SPM build
+  unchanged.
+- A funding link (GitHub Sponsors) and `https://www.vocra.cloud` in the package
+  metadata.
+
+### Fixed
+- `repository` and `issue_tracker` pointed at the demo app repository, which broke
+  pub.dev's repository verification. Both now resolve to this package's directory
+  in the SDK repository.
+
+### Changed
+- Licensed under MIT (the 0.2.1 release was published as MIT; an interim
+  proprietary relicense never shipped to pub.dev).
+
 ## 0.2.1
 
 Updates the published 0.2.0 release with the accumulated app-facing API.

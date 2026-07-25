@@ -8,14 +8,16 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/vocra_flutter"><img src="https://img.shields.io/pub/v/vocra_flutter.svg" alt="pub package"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-red.svg" alt="license: proprietary"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
   <img src="https://img.shields.io/badge/on--device-bring%20your%20own%20keys-22d3ee.svg" alt="on-device, bring your own keys">
+  <a href="https://github.com/sponsors/abdelrahman-shehata99"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-db61a2.svg" alt="Sponsor"></a>
 </p>
 
 <p align="center">
   <a href="https://www.vocra.cloud">Website</a> ·
   <a href="https://github.com/abdelrahman-shehata99/vocra-demo">Example</a> ·
-  <a href="https://github.com/abdelrahman-shehata99/vocra-demo">GitHub</a>
+  <a href="https://github.com/abdelrahman-shehata99/vocra">GitHub</a> ·
+  <a href="https://github.com/sponsors/abdelrahman-shehata99">Sponsor</a>
 </p>
 
 **Vocra** is the low-latency voice layer for Flutter: natural turn-taking,
@@ -208,9 +210,14 @@ Every failure (auth, rate limit, network, provider) surfaces as a typed
 Per-turn latency (`ttft`, `timeToFirstVoice`, `total`, …) arrives as
 `TurnMetrics` via `observe(onMetrics:)`.
 
+## Sponsor
+
+Vocra is MIT-licensed and free to use, with no server and no per-minute fees. If
+it's useful to you, you can
+[support development on GitHub Sponsors](https://github.com/sponsors/abdelrahman-shehata99).
+
+More at **[www.vocra.cloud](https://www.vocra.cloud)**.
+
 ## License
 
-**Proprietary — © 2026 Abdelrahman Shehata. All rights reserved.**
-This is not open-source software. No license or right to use, copy, modify, or
-distribute the code is granted, whether or not the source is accessible. See
-[LICENSE](LICENSE).
+MIT © 2026 Abdelrahman Shehata — see [LICENSE](LICENSE).
