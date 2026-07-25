@@ -20,6 +20,7 @@ Packaging and metadata only — no Dart API or behavior changes.
 ### Changed
 - Licensed under MIT (the 0.2.1 release was published as MIT; an interim
   proprietary relicense never shipped to pub.dev).
+- Depends on `vocra_core: ^0.2.2`.
 
 ## 0.2.1
 
