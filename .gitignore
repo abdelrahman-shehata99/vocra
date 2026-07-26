@@ -55,7 +55,8 @@ app.*.map.json
 packages/vocra_flutter/ios/Flutter/
 .claude
 .serena
-.github
+.github/*
+!.github/FUNDING.yml
 docs
 packages/vocra_flutter/ios/Runner/
 packages/vocra_flutter/android/app/
